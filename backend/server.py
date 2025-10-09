@@ -262,9 +262,9 @@ async def upload_schedule_image(request: ImageUploadRequest):
             # Initialize chat with Gemini (supports image)
             chat = LlmChat(
                 api_key=emergent_key,
-                session_id=f\"image-ocr-{uuid.uuid4()}\",
-                system_message=\"You are an expert at extracting work schedule information from images.\"
-            ).with_model(\"gemini\", \"gemini-2.0-flash\")
+                session_id=f"image-ocr-{uuid.uuid4()}",
+                system_message="You are an expert at extracting work schedule information from images."
+            ).with_model("gemini", "gemini-2.0-flash")
             
             # Create file attachment
             image_file = FileContentWithMimeType(
