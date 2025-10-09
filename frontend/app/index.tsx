@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { Camera } from 'expo-camera';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
