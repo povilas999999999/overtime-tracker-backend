@@ -13,6 +13,9 @@ export default function ScheduleScreen() {
   const [schedule, setSchedule] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showMethodModal, setShowMethodModal] = useState(false);
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualEntries, setManualEntries] = useState<any[]>([]);
 
   useEffect(() => {
     loadSchedule();
