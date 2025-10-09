@@ -269,20 +269,22 @@ async def upload_schedule_image(request: ImageUploadRequest):
             # Create file attachment
             image_file = FileContentWithMimeType(
                 file_path=tmp_path,
-                mime_type=\"image/jpeg\"
+                mime_type="image/jpeg"
             )
             
             # Ask AI to extract schedule
-            message = UserMessage(
-                text=\"\"\"Extract the work schedule from this image. 
+            prompt_text = """Extract the work schedule from this image. 
                 Return ONLY a JSON array with this exact format:
-                [{\"date\": \"YYYY-MM-DD\", \"start\": \"HH:MM\", \"end\": \"HH:MM\"}, ...]
+                [{"date": "YYYY-MM-DD", "start": "HH:MM", "end": "HH:MM"}, ...]
                 
                 Rules:
                 - Use 24-hour time format
                 - Include only future dates or current month dates
                 - If no specific dates, assume next 30 days
-                - Return valid JSON only, no additional text\"\"\",
+                - Return valid JSON only, no additional text"""
+            
+            message = UserMessage(
+                text=prompt_text,
                 file_contents=[image_file]
             )
             
