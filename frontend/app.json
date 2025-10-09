@@ -9,7 +9,15 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Ši programa naudoja kamerą fotografuoti atliekamą darbą.",
+        "NSPhotoLibraryUsageDescription": "Ši programa naudoja nuotraukų galeriją pasirinkti darbo grafikui.",
+        "NSLocationWhenInUseUsageDescription": "Ši programa naudoja jūsų vietą, kad galėtų stebėti, kada esate darbo vietoje.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Ši programa naudoja jūsų vietą fone, kad galėtų automatiškai siųsti el. laišką, kai paliekate darbo vietą.",
+        "NSLocationAlwaysUsageDescription": "Ši programa naudoja jūsų vietą fone, kad galėtų automatiškai siųsti el. laišką, kai paliekate darbo vietą.",
+        "UIBackgroundModes": ["location", "fetch"]
+      }
     },
     "android": {
       "adaptiveIcon": {
