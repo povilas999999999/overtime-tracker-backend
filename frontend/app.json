@@ -41,6 +41,20 @@
           "resizeMode": "contain",
           "backgroundColor": "#000"
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Ši programa naudoja jūsų vietą fone, kad galėtų automatiškai siųsti el. laišką, kai paliekate darbo vietą.",
+          "locationAlwaysPermission": "Ši programa naudoja jūsų vietą fone, kad galėtų automatiškai siųsti el. laišką, kai paliekate darbo vietą.",
+          "locationWhenInUsePermission": "Ši programa naudoja jūsų vietą, kad galėtų stebėti, kada esate darbo vietoje."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Ši programa naudoja kamerą fotografuoti atliekamą darbą."
+        }
       ]
     ],
     "experiments": {
