@@ -21,10 +21,11 @@
 - Automatiškai siunčiamas el. laiškas palikus darbo zoną
 - Veikia fone su "Always Allow" location leidimais
 
-### 4. **AI PDF Grafiką Analizė**
-- Įkelkite savo darbo grafiko PDF
-- AI (Gemini 2.0) automatiškai ištraukia darbo pradžios ir pabaigos laikus
-- Viršvalandžiai skaičiuojami pagal tikrą grafiką
+### 4. **Trijų Būdų Grafiko Įkėlimas**
+- **PDF Failas**: Įkelkite PDF dokumentą - AI (Gemini 2.0) automatiškai ištraukia laikus
+- **Nuotrauka (OCR)**: Nufotografuokite grafiką - AI atpažins tekstą iš nuotraukos
+- **Rankinis Įvedimas**: Įveskite darbo laikus rankiniu būdu
+- Viršvalandžiai skaičiuojami pagal įkeltą grafiką
 
 ### 5. **Automatinis El. Pašto Siuntimas**
 - Outlook SMTP integracija
