@@ -73,6 +73,12 @@ class PDFUploadRequest(BaseModel):
     pdf_base64: str
     filename: str
 
+class ImageUploadRequest(BaseModel):
+    image_base64: str
+
+class ManualScheduleRequest(BaseModel):
+    work_days: List[dict]  # [{\"date\": \"2025-01-15\", \"start\": \"09:00\", \"end\": \"17:00\"}]
+
 class SettingsUpdate(BaseModel):
     reminder_interval: Optional[int] = None
     reminder_duration: Optional[int] = None
