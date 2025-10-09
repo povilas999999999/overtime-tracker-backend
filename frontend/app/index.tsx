@@ -104,34 +104,86 @@ export default function Index() {
 
   const checkPermissions = async () => {
     try {
-      // Location
-      const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
-      if (locationStatus === 'granted') {
-        const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-        setLocationPermission(backgroundStatus === 'granted');
-        
-        if (backgroundStatus === 'granted') {
-          Alert.alert('Sėkmė', 'Vietos leidimai suteikti!');
+      let permissionsGranted = [];
+      let permissionsFailed = [];
+
+      // Location - Foreground
+      try {
+        const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
+        if (locationStatus === 'granted') {
+          permissionsGranted.push('Vietos leidimas (kai naudojate)');
+          
+          // Location - Background
+          try {
+            const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+            if (backgroundStatus === 'granted') {
+              setLocationPermission(true);
+              permissionsGranted.push('Vietos leidimas (visada)');
+            } else {
+              setLocationPermission(false);
+              permissionsFailed.push('Vietos leidimas fone - eikite į Settings ir pasirinkite "Always Allow"');
+            }
+          } catch (bgError) {
+            console.error('Background location error:', bgError);
+            permissionsFailed.push('Vietos leidimas fone');
+          }
         } else {
-          Alert.alert('Dėmesio', 'Reikalingas "Always Allow" leidimas fono sekimui. Eikite į Settings > Location ir pasirinkite "Always".');
+          setLocationPermission(false);
+          permissionsFailed.push('Vietos leidimas');
         }
-      } else {
-        Alert.alert('Klaida', 'Vietos leidimas nesuteiktas.');
+      } catch (locError) {
+        console.error('Location permission error:', locError);
+        permissionsFailed.push('Vietos leidimas');
       }
 
       // Camera
-      const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
-      setCameraPermission(cameraStatus === 'granted');
+      try {
+        const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
+        if (cameraStatus === 'granted') {
+          setCameraPermission(true);
+          permissionsGranted.push('Kamera');
+        } else {
+          setCameraPermission(false);
+          permissionsFailed.push('Kamera');
+        }
+      } catch (camError) {
+        console.error('Camera permission error:', camError);
+        permissionsFailed.push('Kamera');
+      }
 
       // Notifications
-      const { status: notifStatus } = await Notifications.requestPermissionsAsync();
-      
-      if (cameraStatus === 'granted' && notifStatus.granted) {
-        Alert.alert('Sėkmė', 'Visi leidimai suteikti!');
+      try {
+        const { status: notifStatus } = await Notifications.requestPermissionsAsync();
+        if (notifStatus === 'granted') {
+          permissionsGranted.push('Pranešimai');
+        } else {
+          permissionsFailed.push('Pranešimai');
+        }
+      } catch (notifError) {
+        console.error('Notification permission error:', notifError);
+        permissionsFailed.push('Pranešimai');
+      }
+
+      // Show results
+      if (permissionsGranted.length > 0 && permissionsFailed.length === 0) {
+        Alert.alert(
+          'Sėkmė!', 
+          `Suteikti leidimai:\n• ${permissionsGranted.join('\n• ')}`
+        );
+      } else if (permissionsGranted.length > 0 && permissionsFailed.length > 0) {
+        Alert.alert(
+          'Dalinė sėkmė', 
+          `Suteikti:\n• ${permissionsGranted.join('\n• ')}\n\nNesuteikti:\n• ${permissionsFailed.join('\n• ')}`
+        );
+      } else {
+        Alert.alert(
+          'Leidimai nesuteikti', 
+          `Nesuteikti leidimai:\n• ${permissionsFailed.join('\n• ')}\n\nEikite į telefono Settings ir suteikite leidimus rankiniu būdu.`
+        );
       }
     } catch (error) {
       console.error('Error requesting permissions:', error);
-      Alert.alert('Klaida', 'Nepavyko prašyti leidimų.');
+      Alert.alert('Klaida', `Nepavyko prašyti leidimų: ${error.message || error}`);
     }
   };
 
