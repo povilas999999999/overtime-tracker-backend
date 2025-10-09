@@ -242,6 +242,100 @@ async def get_current_schedule():
         return {"schedule": None}
     return {"schedule": WorkSchedule(**schedule).dict()}
 
+@api_router.post("/schedule/upload-image")
+async def upload_schedule_image(request: ImageUploadRequest):
+    """Upload and parse work schedule from image using OCR"""
+    try:
+        # Decode base64 image
+        image_data = base64.b64decode(request.image_base64.split(',')[1] if ',' in request.image_base64 else request.image_base64)
+        
+        # Save temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp_file:
+            tmp_file.write(image_data)
+            tmp_path = tmp_file.name
+        
+        try:
+            emergent_key = os.getenv('EMERGENT_LLM_KEY')
+            if not emergent_key:
+                raise ValueError("EMERGENT_LLM_KEY not found in environment")
+            
+            # Initialize chat with Gemini (supports image)
+            chat = LlmChat(
+                api_key=emergent_key,
+                session_id=f\"image-ocr-{uuid.uuid4()}\",
+                system_message=\"You are an expert at extracting work schedule information from images.\"
+            ).with_model(\"gemini\", \"gemini-2.0-flash\")
+            
+            # Create file attachment
+            image_file = FileContentWithMimeType(
+                file_path=tmp_path,
+                mime_type=\"image/jpeg\"
+            )
+            
+            # Ask AI to extract schedule
+            message = UserMessage(
+                text=\"\"\"Extract the work schedule from this image. 
+                Return ONLY a JSON array with this exact format:
+                [{\"date\": \"YYYY-MM-DD\", \"start\": \"HH:MM\", \"end\": \"HH:MM\"}, ...]
+                
+                Rules:
+                - Use 24-hour time format
+                - Include only future dates or current month dates
+                - If no specific dates, assume next 30 days
+                - Return valid JSON only, no additional text\"\"\",
+                file_contents=[image_file]
+            )
+            
+            response = await chat.send_message(message)
+            logger.info(f\"AI Response: {response}\")
+            
+            # Parse response
+            import json
+            response_text = response.strip()
+            if \"```json\" in response_text:
+                response_text = response_text.split(\"```json\")[1].split(\"```\")[0].strip()
+            elif \"```\" in response_text:
+                response_text = response_text.split(\"```\")[1].split(\"```\")[0].strip()
+            
+            work_days = json.loads(response_text)
+            
+            # Save to database
+            schedule = WorkSchedule(
+                work_days=work_days,
+                pdf_filename=\"schedule_image.jpg\"
+            )
+            await db.schedules.insert_one(schedule.dict())
+            
+            return {\"success\": True, \"schedule\": schedule.dict()}
+        finally:
+            # Clean up temp file
+            os.unlink(tmp_path)
+            
+    except Exception as e:
+        logger.error(f\"Error processing image: {str(e)}\")
+        raise HTTPException(status_code=500, detail=f\"Failed to process image: {str(e)}\")
+
+@api_router.post(\"/schedule/manual\")
+async def upload_manual_schedule(request: ManualScheduleRequest):
+    \"\"\"Upload manually entered schedule\"\"\"
+    try:
+        # Validate work_days
+        if not request.work_days or len(request.work_days) == 0:
+            raise HTTPException(status_code=400, detail=\"No work days provided\")
+        
+        # Save to database
+        schedule = WorkSchedule(
+            work_days=request.work_days,
+            pdf_filename=\"manual_entry\"
+        )
+        await db.schedules.insert_one(schedule.dict())
+        
+        return {\"success\": True, \"schedule\": schedule.dict()}
+        
+    except Exception as e:
+        logger.error(f\"Error saving manual schedule: {str(e)}\")
+        raise HTTPException(status_code=500, detail=f\"Failed to save schedule: {str(e)}\")
+
 @api_router.post("/settings")
 async def update_settings(settings: SettingsUpdate):
     """Update app settings"""
