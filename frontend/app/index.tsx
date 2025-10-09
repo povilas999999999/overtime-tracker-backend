@@ -103,19 +103,36 @@ export default function Index() {
   }, [isWorking, currentSession]);
 
   const checkPermissions = async () => {
-    // Location
-    const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
-    if (locationStatus === 'granted') {
-      const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-      setLocationPermission(backgroundStatus === 'granted');
+    try {
+      // Location
+      const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
+      if (locationStatus === 'granted') {
+        const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+        setLocationPermission(backgroundStatus === 'granted');
+        
+        if (backgroundStatus === 'granted') {
+          Alert.alert('Sėkmė', 'Vietos leidimai suteikti!');
+        } else {
+          Alert.alert('Dėmesio', 'Reikalingas "Always Allow" leidimas fono sekimui. Eikite į Settings > Location ir pasirinkite "Always".');
+        }
+      } else {
+        Alert.alert('Klaida', 'Vietos leidimas nesuteiktas.');
+      }
+
+      // Camera
+      const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
+      setCameraPermission(cameraStatus === 'granted');
+
+      // Notifications
+      const { status: notifStatus } = await Notifications.requestPermissionsAsync();
+      
+      if (cameraStatus === 'granted' && notifStatus.granted) {
+        Alert.alert('Sėkmė', 'Visi leidimai suteikti!');
+      }
+    } catch (error) {
+      console.error('Error requesting permissions:', error);
+      Alert.alert('Klaida', 'Nepavyko prašyti leidimų.');
     }
-
-    // Camera
-    const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
-    setCameraPermission(cameraStatus === 'granted');
-
-    // Notifications
-    await Notifications.requestPermissionsAsync();
   };
 
   const loadSettings = async () => {
