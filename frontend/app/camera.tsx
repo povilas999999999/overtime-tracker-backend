@@ -82,7 +82,13 @@ export default function CameraScreen() {
             <View style={styles.captureButtonInner} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/');
+            }
+          }}>
             <Ionicons name="close" size={32} color="white" />
           </TouchableOpacity>
         </View>
