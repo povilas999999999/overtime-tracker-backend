@@ -101,6 +101,7 @@ class SettingsUpdate(BaseModel):
     email_subject: Optional[str] = None
     email_body_template: Optional[str] = None
     geofence_radius: Optional[int] = None
+    overtime_threshold_minutes: Optional[int] = None
 
 class PhotoUpload(BaseModel):
     session_id: str
