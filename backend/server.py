@@ -55,6 +55,19 @@ class AppSettings(BaseModel):
     work_location: Optional[dict] = None  # {"latitude": 0, "longitude": 0, "radius": 100}
     recipient_email: str = "povilas999999999@yahoo.com"
     email_subject: str = "Prašau apmokėti už viršvalandžius"
+    email_body_template: str = """Sveiki,
+
+Prašau apmokėti už viršvalandžius.
+
+Data: {date}
+Darbo pradžia: {start_time}
+Darbo pabaiga: {end_time}
+Viršvalandžiai: {overtime_hours} val. ({overtime_minutes} min.)
+
+Pridėtos {photo_count} darbo nuotraukos.
+
+Pagarbiai"""
+    geofence_radius: int = 100  # meters
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class WorkSession(BaseModel):
