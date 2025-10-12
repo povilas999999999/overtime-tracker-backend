@@ -199,9 +199,8 @@ def send_email_with_photos(recipient: str, subject: str, body: str, photos: List
             except Exception as e:
                 logger.error(f"Error attaching photo {idx}: {str(e)}")
         
-        # Connect to Gmail SMTP
-        with smtplib.SMTP('smtp.gmail.com', 587) as server:
-            server.starttls()
+        # Connect to Gmail SMTP with SSL
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
             server.login(sender_email, sender_password)
             server.send_message(msg)
         
