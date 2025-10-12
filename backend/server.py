@@ -413,7 +413,8 @@ async def end_work_session(request: WorkSessionEnd):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    end_time = datetime.utcnow()
+    # Use datetime.now() for local time
+    end_time = datetime.now()
     start_time = session['start_time']
     actual_minutes = int((end_time - start_time).total_seconds() / 60)
     
