@@ -107,48 +107,20 @@ export default function Index() {
     try {
       let permissionsGranted = [];
       let permissionsFailed = [];
-      let warnings = [];
 
-      // Location - Foreground
+      // Location - Foreground ONLY (no background needed!)
       try {
         const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
         if (locationStatus === 'granted') {
+          setLocationPermission(true);
           permissionsGranted.push('✅ Vietos leidimas (kai naudojate)');
-          
-          // Check if we're in Expo Go
-          const isExpoGo = Constants.expoConfig?.extra?.isExpoGo !== false;
-          
-          // Location - Background (may not work in Expo Go)
-          try {
-            const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-            if (backgroundStatus === 'granted') {
-              setLocationPermission(true);
-              permissionsGranted.push('✅ Vietos leidimas fone (visada)');
-            } else {
-              setLocationPermission(false);
-              if (isExpoGo) {
-                warnings.push('⚠️ Expo Go nepalaiko fono vietos sekimo. Naudokite Development Build.');
-                // Use foreground location as fallback
-                setLocationPermission(locationStatus === 'granted');
-              } else {
-                permissionsFailed.push('❌ Vietos leidimas fone - eikite į iPhone Settings > Viršvalandžių App > Location > "Always"');
-              }
-            }
-          } catch (bgError) {
-            console.error('Background location error:', bgError);
-            if (isExpoGo) {
-              warnings.push('⚠️ Expo Go nepalaiko fono vietos sekimo pilnai');
-              setLocationPermission(locationStatus === 'granted');
-            } else {
-              permissionsFailed.push('❌ Vietos leidimas fone (klaida)');
-            }
-          }
         } else {
           setLocationPermission(false);
-          permissionsFailed.push('❌ Vietos leidimas nesuteiktas');
+          permissionsFailed.push('❌ Vietos leidimas');
         }
       } catch (locError) {
         console.error('Location permission error:', locError);
+        setLocationPermission(false);
         permissionsFailed.push('❌ Vietos leidimas (klaida)');
       }
 
@@ -187,30 +159,21 @@ export default function Index() {
         message += 'SUTEIKTI LEIDIMAI:\n' + permissionsGranted.join('\n') + '\n\n';
       }
       
-      if (warnings.length > 0) {
-        message += 'PERSPĖJIMAI:\n' + warnings.join('\n') + '\n\n';
-      }
-      
       if (permissionsFailed.length > 0) {
         message += 'NESUTEIKTI LEIDIMAI:\n' + permissionsFailed.join('\n') + '\n\n';
         message += 'KAIP PATAISYTI:\n';
         message += '1. Eikite į iPhone Settings\n';
         message += '2. Raskite šią aplikaciją\n';
-        message += '3. Suteikite trūkstamus leidimus\n';
-        message += '4. Location: pasirinkite "Always"';
+        message += '3. Suteikite trūkstamus leidimus';
       }
 
       // Show result
-      if (permissionsFailed.length === 0 && warnings.length === 0) {
+      if (permissionsFailed.length === 0) {
         Alert.alert('🎉 Visi leidimai suteikti!', message);
       } else if (permissionsGranted.length > 0) {
-        Alert.alert('Leidimų būsena', message, [
-          { text: 'Supratau', style: 'default' }
-        ]);
+        Alert.alert('Leidimų būsena', message);
       } else {
-        Alert.alert('Leidimai nesuteikti', message, [
-          { text: 'Gerai', style: 'cancel' }
-        ]);
+        Alert.alert('Leidimai nesuteikti', message);
       }
     } catch (error) {
       console.error('Error requesting permissions:', error);
