@@ -115,6 +115,7 @@ class WorkSessionStart(BaseModel):
     date: str
     latitude: float
     longitude: float
+    start_timestamp: str  # ISO format timestamp from frontend
 
 class WorkSessionEnd(BaseModel):
     session_id: str
