@@ -9,6 +9,7 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function SettingsScreen() {
   const [settings, setSettings] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
   const [reminderInterval, setReminderInterval] = useState('15');
   const [reminderDuration, setReminderDuration] = useState('10');
   const [recipientEmail, setRecipientEmail] = useState('povilas999999999@yahoo.com');
