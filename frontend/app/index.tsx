@@ -12,47 +12,6 @@ import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
-const GEOFENCE_TASK = 'geofence-task';
-
-// Define geofence task
-TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }) => {
-  if (error) {
-    console.error('Geofence task error:', error);
-    return;
-  }
-  
-  if (data.eventType === Location.GeofencingEventType.Exit) {
-    console.log('Exited work geofence - triggering email');
-    // Trigger email sending
-    const sessionId = await AsyncStorage.getItem('activeSessionId');
-    if (sessionId) {
-      try {
-        await axios.post(`${BACKEND_URL}/api/session/end`, {
-          session_id: sessionId,
-          latitude: data.region.latitude,
-          longitude: data.region.longitude
-        });
-        
-        await axios.post(`${BACKEND_URL}/api/email/send`, {
-          session_id: sessionId
-        });
-        
-        await AsyncStorage.removeItem('activeSessionId');
-        
-        // Send notification
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: 'Viršvalandžių el. laiškas išsiųstas',
-            body: 'El. laiškas su darbo nuotraukomis ir viršvalandžiais išsiųstas sėkmingai.',
-          },
-          trigger: null,
-        });
-      } catch (error) {
-        console.error('Error sending email on geofence exit:', error);
-      }
-    }
-  }
-});
 
 export default function Index() {
   const router = useRouter();
