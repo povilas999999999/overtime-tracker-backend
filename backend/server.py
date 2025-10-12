@@ -473,26 +473,33 @@ async def send_overtime_email(request: EmailSendRequest):
     
     recipient = settings.get('recipient_email', 'povilas999999999@yahoo.com')
     subject = settings.get('email_subject', 'Prašau apmokėti už viršvalandžius')
+    email_template = settings.get('email_body_template', AppSettings().email_body_template)
     
     overtime_minutes = session.get('overtime_minutes', 0)
     overtime_hours = overtime_minutes / 60
     
-    body = f"""
+    # Format the email body using the template
+    body_text = email_template.format(
+        date=session['date'],
+        start_time=session['start_time'].strftime('%H:%M'),
+        end_time=session.get('end_time', datetime.utcnow()).strftime('%H:%M'),
+        overtime_hours=f"{overtime_hours:.2f}",
+        overtime_minutes=overtime_minutes,
+        photo_count=len(session.get('photos', []))
+    )
+    
+    # Convert to HTML
+    body_html = f"""
     <html>
     <body>
-        <h2>Darbo viršvalandžių ataskaita</h2>
-        <p><strong>Data:</strong> {session['date']}</p>
-        <p><strong>Darbo pradžia:</strong> {session['start_time'].strftime('%H:%M')}</p>
-        <p><strong>Darbo pabaiga:</strong> {session.get('end_time', datetime.utcnow()).strftime('%H:%M')}</p>
-        <p><strong>Viršvalandžiai:</strong> {overtime_hours:.2f} val. ({overtime_minutes} min.)</p>
-        <br>
-        <p>Prašau apmokėti už viršvalandžius.</p>
-        <p>Pridėtos {len(session.get('photos', []))} darbo nuotraukos.</p>
+        <pre style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6;">
+{body_text}
+        </pre>
     </body>
     </html>
     """
     
-    send_email_with_photos(recipient, subject, body, session.get('photos', []))
+    send_email_with_photos(recipient, subject, body_html, session.get('photos', []))
     
     # Mark email as sent
     await db.sessions.update_one(
