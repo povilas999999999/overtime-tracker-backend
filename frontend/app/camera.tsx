@@ -51,7 +51,13 @@ export default function CameraScreen() {
         });
 
         Alert.alert('Sėkmė', 'Nuotrauka išsaugota!', [
-          { text: 'OK', onPress: () => router.back() }
+          { text: 'OK', onPress: () => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/');
+            }
+          }}
         ]);
       } catch (error) {
         console.error('Error taking photo:', error);
