@@ -104,6 +104,8 @@ class SettingsUpdate(BaseModel):
     email_body_template: Optional[str] = None
     geofence_radius: Optional[int] = None
     overtime_threshold_minutes: Optional[int] = None
+    end_of_day_reminder_minutes: Optional[int] = None
+    auto_send_email_on_geofence: Optional[bool] = None
 
 class PhotoUpload(BaseModel):
     session_id: str
