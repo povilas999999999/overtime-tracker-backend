@@ -13,8 +13,11 @@ export default function SettingsScreen() {
   const [reminderDuration, setReminderDuration] = useState('10');
   const [recipientEmail, setRecipientEmail] = useState('povilas999999999@yahoo.com');
   const [emailSubject, setEmailSubject] = useState('Prašau apmokėti už viršvalandžius');
+  const [emailBody, setEmailBody] = useState('');
+  const [geofenceRadius, setGeofenceRadius] = useState('100');
   const [hasWorkLocation, setHasWorkLocation] = useState(false);
   const [workLocation, setWorkLocation] = useState<any>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   useEffect(() => {
     loadSettings();
