@@ -68,6 +68,7 @@ Pridėtos {photo_count} darbo nuotraukos.
 
 Pagarbiai"""
     geofence_radius: int = 100  # meters
+    overtime_threshold_minutes: int = 5  # minutes to wait after scheduled end before sending email
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class WorkSession(BaseModel):
