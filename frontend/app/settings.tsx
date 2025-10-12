@@ -52,6 +52,8 @@ export default function SettingsScreen() {
         reminder_duration: parseInt(reminderDuration) || 10,
         recipient_email: recipientEmail,
         email_subject: emailSubject,
+        email_body_template: emailBody,
+        geofence_radius: parseInt(geofenceRadius) || 100,
         work_location: workLocation,
       });
 
