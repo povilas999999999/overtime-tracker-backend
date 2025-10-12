@@ -366,11 +366,6 @@ export default function Index() {
         longitude: location.coords.longitude
       });
 
-      // Stop geofencing
-      if (settings?.work_location) {
-        await Location.stopGeofencingAsync(GEOFENCE_TASK);
-      }
-
       setIsWorking(false);
       setCurrentSession(null);
       setTimeWorked('00:00:00');
