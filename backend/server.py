@@ -69,6 +69,8 @@ Pridėtos {photo_count} darbo nuotraukos.
 Pagarbiai"""
     geofence_radius: int = 100  # meters
     overtime_threshold_minutes: int = 5  # minutes to wait after scheduled end before sending email
+    end_of_day_reminder_minutes: int = 15  # minutes before scheduled end to start reminding
+    auto_send_email_on_geofence: bool = False  # if False, ask user; if True, send automatically
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class WorkSession(BaseModel):
