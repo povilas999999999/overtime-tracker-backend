@@ -88,6 +88,9 @@ export default function Index() {
 
       // Start photo reminders
       startPhotoReminders();
+      
+      // Start periodic location check (every 5 minutes)
+      startLocationCheck();
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
