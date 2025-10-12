@@ -531,6 +531,43 @@ async def get_session_history(limit: int = 30):
     sessions = await db.sessions.find().sort("start_time", -1).limit(limit).to_list(limit)
     return {"sessions": [WorkSession(**s).dict() for s in sessions]}
 
+@api_router.post("/session/edit")
+async def edit_work_session(request: WorkSessionEdit):
+    """Edit work session times"""
+    session = await db.sessions.find_one({"id": request.session_id})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Parse new times from frontend
+    new_start = datetime.fromisoformat(request.start_time.replace('Z', '+00:00'))
+    new_end = datetime.fromisoformat(request.end_time.replace('Z', '+00:00')) if request.end_time else None
+    
+    # Recalculate overtime if both times present
+    overtime_minutes = 0
+    if new_end and session.get('scheduled_start') and session.get('scheduled_end'):
+        actual_minutes = int((new_end - new_start).total_seconds() / 60)
+        scheduled_start = datetime.strptime(session['scheduled_start'], "%H:%M")
+        scheduled_end = datetime.strptime(session['scheduled_end'], "%H:%M")
+        expected_minutes = int((scheduled_end - scheduled_start).total_seconds() / 60)
+        overtime_minutes = max(0, actual_minutes - expected_minutes)
+    
+    # Update session
+    update_data = {
+        "start_time": new_start,
+        "date": request.date
+    }
+    if new_end:
+        update_data["end_time"] = new_end
+        update_data["overtime_minutes"] = overtime_minutes
+    
+    await db.sessions.update_one(
+        {"id": request.session_id},
+        {"$set": update_data}
+    )
+    
+    updated_session = await db.sessions.find_one({"id": request.session_id})
+    return {"success": True, "session": WorkSession(**updated_session).dict()}
+
 # Include the router in the main app
 app.include_router(api_router)
 
