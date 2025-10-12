@@ -425,10 +425,12 @@ export default function Index() {
       });
 
       setIsWorking(false);
+      const sessionId = currentSession.id;
       setCurrentSession(null);
       setTimeWorked('00:00:00');
       await AsyncStorage.removeItem('activeSessionId');
 
+      // Check if auto-send is enabled (manual stop work - always ask)
       Alert.alert(
         'Darbo sesija baigta',
         'Ar norite iš karto išsiųsti viršvalandžių el. laišką?',
@@ -439,7 +441,7 @@ export default function Index() {
             onPress: async () => {
               try {
                 await axios.post(`${BACKEND_URL}/api/email/send`, {
-                  session_id: currentSession.id
+                  session_id: sessionId
                 });
                 Alert.alert('Sėkmė', 'El. laiškas išsiųstas!');
               } catch (error) {
