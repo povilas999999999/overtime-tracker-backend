@@ -321,7 +321,7 @@ export default function Index() {
 
   const startWork = async () => {
     if (!locationPermission) {
-      Alert.alert('Klaida', 'Reikalingas leidimas naudoti vietovę fone.');
+      Alert.alert('Klaida', 'Reikalingas leidimas naudoti vietovę.');
       return;
     }
 
@@ -341,21 +341,13 @@ export default function Index() {
       setIsWorking(true);
       await AsyncStorage.setItem('activeSessionId', response.data.session.id);
 
-      // Setup geofencing if work location is set
-      if (settings?.work_location) {
-        await Location.startGeofencingAsync(GEOFENCE_TASK, [
-          {
-            identifier: 'work-location',
-            latitude: settings.work_location.latitude,
-            longitude: settings.work_location.longitude,
-            radius: settings.work_location.radius || 100,
-            notifyOnEnter: false,
-            notifyOnExit: true,
-          },
-        ]);
-      }
-
-      Alert.alert('Sėkmė', 'Darbo sesija pradėta!');
+      Alert.alert(
+        'Darbo sesija pradėta!',
+        settings?.work_location 
+          ? 'Jūsų vieta bus tikrinama kas 5 minutes. Paliekant darbo vietą, automatiškai išsiųsime el. laišką.' 
+          : 'Nustatykite darbo vietą nustatymuose automatiniam el. laiško siuntimui.',
+        [{ text: 'Gerai' }]
+      );
     } catch (error) {
       console.error('Error starting work:', error);
       Alert.alert('Klaida', 'Nepavyko pradėti darbo sesijos.');
