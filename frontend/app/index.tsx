@@ -384,13 +384,15 @@ export default function Index() {
     try {
       // Get current location
       const location = await Location.getCurrentPositionAsync({});
-      const today = new Date().toISOString().split('T')[0];
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
 
-      // Start session
+      // Start session with local timestamp
       const response = await axios.post(`${BACKEND_URL}/api/session/start`, {
         date: today,
         latitude: location.coords.latitude,
-        longitude: location.coords.longitude
+        longitude: location.coords.longitude,
+        start_timestamp: now.toISOString()  // Send frontend local time
       });
 
       setCurrentSession(response.data.session);
