@@ -122,6 +122,12 @@ class WorkSessionEnd(BaseModel):
     latitude: float
     longitude: float
 
+class WorkSessionEdit(BaseModel):
+    session_id: str
+    start_time: str  # ISO format
+    end_time: Optional[str] = None  # ISO format
+    date: str
+
 class EmailSendRequest(BaseModel):
     session_id: str
 
