@@ -395,9 +395,10 @@ async def start_work_session(request: WorkSessionStart):
                 scheduled_times = {"start": day['start'], "end": day['end']}
                 break
     
+    # Use datetime.now() for local time instead of utcnow()
     session = WorkSession(
         date=request.date,
-        start_time=datetime.utcnow(),
+        start_time=datetime.now(),
         scheduled_start=scheduled_times['start'] if scheduled_times else None,
         scheduled_end=scheduled_times['end'] if scheduled_times else None
     )
