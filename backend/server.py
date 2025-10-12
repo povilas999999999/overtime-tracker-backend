@@ -173,10 +173,10 @@ async def parse_pdf_schedule(pdf_path: str) -> List[dict]:
         raise HTTPException(status_code=500, detail=f"Failed to parse PDF: {str(e)}")
 
 def send_email_with_photos(recipient: str, subject: str, body: str, photos: List[str]):
-    """Send email with photos attached"""
+    """Send email with photos attached using Gmail SMTP"""
     try:
-        sender_email = os.getenv('SENDER_EMAIL', 'paulius.bosas@nvc.santa.lt')
-        sender_password = os.getenv('SENDER_PASSWORD', 'Pavasaris2025!')
+        sender_email = os.getenv('SENDER_EMAIL', 'pauliusbosas.nvc@gmail.com')
+        sender_password = os.getenv('SENDER_PASSWORD', 'afsgfbwuirqgyafg')
         
         msg = MIMEMultipart()
         msg['From'] = sender_email
@@ -199,8 +199,8 @@ def send_email_with_photos(recipient: str, subject: str, body: str, photos: List
             except Exception as e:
                 logger.error(f"Error attaching photo {idx}: {str(e)}")
         
-        # Connect to Outlook SMTP
-        with smtplib.SMTP('smtp-mail.outlook.com', 587) as server:
+        # Connect to Gmail SMTP
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
             server.starttls()
             server.login(sender_email, sender_password)
             server.send_message(msg)
