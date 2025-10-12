@@ -25,6 +25,7 @@ export default function SettingsScreen() {
 
   const loadSettings = async () => {
     try {
+      setLoading(true);
       const response = await axios.get(`${BACKEND_URL}/api/settings`);
       const data = response.data.settings;
       setSettings(data);
@@ -32,10 +33,14 @@ export default function SettingsScreen() {
       setReminderDuration(String(data.reminder_duration || 10));
       setRecipientEmail(data.recipient_email || 'povilas999999999@yahoo.com');
       setEmailSubject(data.email_subject || 'Prašau apmokėti už viršvalandžius');
+      setEmailBody(data.email_body_template || '');
+      setGeofenceRadius(String(data.geofence_radius || 100));
       setHasWorkLocation(!!data.work_location);
       setWorkLocation(data.work_location);
     } catch (error) {
       console.error('Error loading settings:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
