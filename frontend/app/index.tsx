@@ -265,16 +265,23 @@ export default function Index() {
 
   const handleGeofenceExit = async () => {
     const sessionId = await AsyncStorage.getItem('activeSessionId');
-    if (sessionId) {
-      try {
-        const location = await Location.getCurrentPositionAsync({});
-        
-        await axios.post(`${BACKEND_URL}/api/session/end`, {
-          session_id: sessionId,
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude
-        });
-        
+    if (!sessionId) return;
+
+    try {
+      const location = await Location.getCurrentPositionAsync({});
+      
+      // End session
+      await axios.post(`${BACKEND_URL}/api/session/end`, {
+        session_id: sessionId,
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      });
+
+      // Check if auto-send is enabled
+      const autoSend = settings?.auto_send_email_on_geofence || false;
+
+      if (autoSend) {
+        // Auto-send email
         await axios.post(`${BACKEND_URL}/api/email/send`, {
           session_id: sessionId
         });
@@ -291,10 +298,51 @@ export default function Index() {
           trigger: null,
         });
         
-        Alert.alert('Darbo pabaiga', 'Paliekate darbo vietą. Viršvalandžių el. laiškas išsiųstas!');
-      } catch (error) {
-        console.error('Error in geofence exit:', error);
+        Alert.alert('Darbo pabaiga', 'Paliekate darbo vietą. Viršvalandžių el. laiškas išsiųstas automatiškai!');
+      } else {
+        // Ask user
+        await AsyncStorage.removeItem('activeSessionId');
+        setIsWorking(false);
+        setCurrentSession(null);
+
+        Alert.alert(
+          'Paliekate darbo vietą',
+          'Ar norite išsiųsti viršvalandžių el. laišką?',
+          [
+            { 
+              text: 'Ne', 
+              style: 'cancel',
+              onPress: () => {
+                Alert.alert('Gerai', 'El. laiškas neišsiųstas. Galite išsiųsti vėliau iš Istorijos.');
+              }
+            },
+            {
+              text: 'Taip, siųsti',
+              onPress: async () => {
+                try {
+                  await axios.post(`${BACKEND_URL}/api/email/send`, {
+                    session_id: sessionId
+                  });
+                  Alert.alert('Sėkmė', 'El. laiškas išsiųstas!');
+                  
+                  await Notifications.scheduleNotificationAsync({
+                    content: {
+                      title: 'Viršvalandžių el. laiškas išsiųstas',
+                      body: 'El. laiškas su viršvalandžiais išsiųstas sėkmingai.',
+                    },
+                    trigger: null,
+                  });
+                } catch (error) {
+                  Alert.alert('Klaida', 'Nepavyko išsiųsti el. laiško.');
+                }
+              }
+            }
+          ]
+        );
       }
+    } catch (error) {
+      console.error('Error in geofence exit:', error);
+      Alert.alert('Klaida', 'Nepavyko baigti darbo sesijos.');
     }
   };
 
