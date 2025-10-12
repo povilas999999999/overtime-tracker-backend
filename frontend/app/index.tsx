@@ -200,7 +200,7 @@ export default function Index() {
         const location = await Location.getCurrentPositionAsync({});
         const workLat = settings.work_location.latitude;
         const workLon = settings.work_location.longitude;
-        const radius = settings.work_location.radius || 100;
+        const radius = settings.geofence_radius || 100;
         
         // Calculate distance
         const distance = getDistanceFromLatLonInMeters(
@@ -210,11 +210,32 @@ export default function Index() {
           workLon
         );
         
-        // If outside work zone, trigger email
+        // Check if outside work zone
         if (distance > radius) {
-          console.log('Outside work zone! Triggering email...');
-          await handleGeofenceExit();
-          clearInterval(locationCheckInterval);
+          console.log(`Outside work zone! Distance: ${distance}m, Radius: ${radius}m`);
+          
+          // Check if overtime threshold is met
+          if (currentSession.scheduled_end) {
+            const now = new Date();
+            const [hours, minutes] = currentSession.scheduled_end.split(':');
+            const scheduledEnd = new Date();
+            scheduledEnd.setHours(parseInt(hours), parseInt(minutes), 0);
+            
+            const minutesOvertime = Math.floor((now.getTime() - scheduledEnd.getTime()) / (1000 * 60));
+            const overtimeThreshold = settings.overtime_threshold_minutes || 5;
+            
+            if (minutesOvertime >= overtimeThreshold) {
+              console.log(`Overtime threshold met: ${minutesOvertime} >= ${overtimeThreshold} minutes`);
+              await handleGeofenceExit();
+              clearInterval(locationCheckInterval);
+            } else {
+              console.log(`Overtime threshold not met yet: ${minutesOvertime} < ${overtimeThreshold} minutes`);
+            }
+          } else {
+            // No scheduled end time, send anyway
+            await handleGeofenceExit();
+            clearInterval(locationCheckInterval);
+          }
         }
       } catch (error) {
         console.error('Location check error:', error);
