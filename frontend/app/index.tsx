@@ -233,6 +233,92 @@ export default function Index() {
     }, interval);
   };
 
+  const startLocationCheck = () => {
+    // Check location every 5 minutes
+    const locationCheckInterval = setInterval(async () => {
+      if (!settings?.work_location || !currentSession) return;
+      
+      try {
+        const location = await Location.getCurrentPositionAsync({});
+        const workLat = settings.work_location.latitude;
+        const workLon = settings.work_location.longitude;
+        const radius = settings.work_location.radius || 100;
+        
+        // Calculate distance
+        const distance = getDistanceFromLatLonInMeters(
+          location.coords.latitude,
+          location.coords.longitude,
+          workLat,
+          workLon
+        );
+        
+        // If outside work zone, trigger email
+        if (distance > radius) {
+          console.log('Outside work zone! Triggering email...');
+          await handleGeofenceExit();
+          clearInterval(locationCheckInterval);
+        }
+      } catch (error) {
+        console.error('Location check error:', error);
+      }
+    }, 5 * 60 * 1000); // Every 5 minutes
+    
+    // Store interval ref for cleanup
+    return locationCheckInterval;
+  };
+
+  const getDistanceFromLatLonInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371000; // Radius of the earth in meters
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+    return distance;
+  };
+
+  const deg2rad = (deg: number) => {
+    return deg * (Math.PI / 180);
+  };
+
+  const handleGeofenceExit = async () => {
+    const sessionId = await AsyncStorage.getItem('activeSessionId');
+    if (sessionId) {
+      try {
+        const location = await Location.getCurrentPositionAsync({});
+        
+        await axios.post(`${BACKEND_URL}/api/session/end`, {
+          session_id: sessionId,
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude
+        });
+        
+        await axios.post(`${BACKEND_URL}/api/email/send`, {
+          session_id: sessionId
+        });
+        
+        await AsyncStorage.removeItem('activeSessionId');
+        setIsWorking(false);
+        setCurrentSession(null);
+        
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Viršvalandžių el. laiškas išsiųstas',
+            body: 'Paliekate darbo vietą. El. laiškas išsiųstas automatiškai.',
+          },
+          trigger: null,
+        });
+        
+        Alert.alert('Darbo pabaiga', 'Paliekate darbo vietą. Viršvalandžių el. laiškas išsiųstas!');
+      } catch (error) {
+        console.error('Error in geofence exit:', error);
+      }
+    }
+  };
+
   const startWork = async () => {
     if (!locationPermission) {
       Alert.alert('Klaida', 'Reikalingas leidimas naudoti vietovę fone.');
