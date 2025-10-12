@@ -3,7 +3,6 @@ import { Text, View, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import * as TaskManager from 'expo-task-manager';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Camera } from 'expo-camera';
