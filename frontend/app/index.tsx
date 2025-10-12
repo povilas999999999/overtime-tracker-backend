@@ -168,9 +168,29 @@ export default function Index() {
   };
 
   const startPhotoReminders = () => {
-    const interval = (settings?.reminder_interval || 15) * 60 * 1000; // Convert to ms
+    const baseInterval = (settings?.reminder_interval || 15) * 60 * 1000; // Convert to ms
+    let currentInterval = baseInterval;
     
-    reminderIntervalRef.current = setInterval(async () => {
+    const checkAndRemind = async () => {
+      // Check if we're near end of day
+      if (currentSession?.scheduled_end) {
+        const now = new Date();
+        const [hours, minutes] = currentSession.scheduled_end.split(':');
+        const scheduledEnd = new Date();
+        scheduledEnd.setHours(parseInt(hours), parseInt(minutes), 0);
+        
+        const minutesUntilEnd = Math.floor((scheduledEnd.getTime() - now.getTime()) / (1000 * 60));
+        const endOfDayThreshold = settings?.end_of_day_reminder_minutes || 15;
+        
+        // If we're within threshold before end, remind more frequently
+        if (minutesUntilEnd > 0 && minutesUntilEnd <= endOfDayThreshold) {
+          currentInterval = 5 * 60 * 1000; // 5 minutes
+          console.log(`Near end of day (${minutesUntilEnd} min left), increasing reminder frequency`);
+        } else {
+          currentInterval = baseInterval;
+        }
+      }
+      
       // Send notification with vibration
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -188,7 +208,16 @@ export default function Index() {
         Vibration.vibrate([0, 500, 500, 500], false);
         setTimeout(() => Vibration.cancel(), duration);
       }
-    }, interval);
+      
+      // Schedule next reminder with current interval
+      if (reminderIntervalRef.current) {
+        clearTimeout(reminderIntervalRef.current);
+      }
+      reminderIntervalRef.current = setTimeout(checkAndRemind, currentInterval);
+    };
+    
+    // Start first reminder
+    reminderIntervalRef.current = setTimeout(checkAndRemind, currentInterval);
   };
 
   const startLocationCheck = () => {
