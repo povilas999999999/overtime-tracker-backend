@@ -84,68 +84,24 @@ export default function ScheduleScreen() {
     }
   };
 
-  // Method 2: Image OCR (FIXED)
-  const pickImage = async () => {
-    try {
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-      
-      if (permissionResult.status !== 'granted') {
-        Alert.alert('Klaida', 'Reikalingas leidimas naudoti kamerą.');
-        return;
-      }
-
-      Alert.alert(
-        'Pasirinkite šaltinį',
-        'Kaip norite įkelti grafiko nuotrauką?',
-        [
-          { text: 'Fotografuoti', onPress: () => takePhoto() },
-          { text: 'Galerija', onPress: () => pickFromGallery() },
-          { text: 'Atšaukti', style: 'cancel' },
-        ]
-      );
-    } catch (error) {
-      console.error('Error requesting permission:', error);
-      Alert.alert('Klaida', 'Nepavyko prašyti leidimų.');
-    }
-  };
-
-  const takePhoto = async () => {
+  // Method 2: Image File Upload (JPG/HEIC/PNG)
+  const pickImageFile = async () => {
     try {
       setShowMethodModal(false);
       
-      // FIXED: Use 'images' instead of MediaTypeOptions.Images
-      // FIXED: Lower quality to 0.3 to prevent freeze
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: 'images',
-        quality: 0.3,
-        base64: true,
-      });
-
-      if (!result.canceled && result.assets[0].base64) {
-        uploadImage(result.assets[0].base64);
-      }
-    } catch (error) {
-      console.error('Error taking photo:', error);
-      Alert.alert('Klaida', 'Nepavyko padaryti nuotraukos.');
-    }
-  };
-
-  const pickFromGallery = async () => {
-    try {
-      setShowMethodModal(false);
-      
-      // FIXED: Use 'images' instead of MediaTypeOptions.Images
+      // Use ImagePicker to select image file from gallery
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: 'images',
-        quality: 0.5,
+        quality: 0.7,
         base64: true,
+        allowsEditing: false,
       });
 
       if (!result.canceled && result.assets[0].base64) {
-        uploadImage(result.assets[0].base64);
+        uploadImage(result.assets[0].base64, result.assets[0].mimeType || 'image/jpeg');
       }
     } catch (error) {
-      console.error('Error picking image:', error);
+      console.error('Error picking image file:', error);
       Alert.alert('Klaida', 'Nepavyko pasirinkti nuotraukos.');
     }
   };
