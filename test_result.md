@@ -201,8 +201,129 @@ backend:
           agent: "testing"
           comment: "✅ MongoDB integration working perfectly. Data persistence verified: settings and sessions collections created, documents properly stored with UUIDs, photos stored as base64, session lifecycle data maintained correctly"
 
+  - task: "Schedule PDF Upload API"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "✅ POST /api/schedule/upload endpoint implemented with AI-powered PDF parsing using Emergent LLM key. Backend endpoint tested and working."
+
+  - task: "Schedule Image OCR API"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "✅ POST /api/schedule/upload-image endpoint implemented with Gemini 2.0 Flash for image text recognition. Backend endpoint tested and working."
+
+  - task: "Manual Schedule Entry API"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "✅ POST /api/schedule/manual endpoint implemented. Accepts array of work days with date/start/end times. Also used for schedule editing functionality."
+
 frontend:
-  # Frontend testing not performed as per instructions
+  - task: "Schedule Upload UI - PDF"
+    implemented: true
+    working: true
+    file: "frontend/app/schedule.tsx"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: false
+          agent: "user"
+          comment: "❌ User reported: PDF upload showing errors when attempting to upload PDF files"
+        - working: true
+          agent: "main"
+          comment: "✅ FIXED: Removed deprecated FileSystem.EncodingType parameter. Now using correct encoding: 'base64' parameter. PDF picker working with DocumentPicker.getDocumentAsync() and proper copyToCacheDirectory: true flag."
+
+  - task: "Schedule Upload UI - Image Gallery"
+    implemented: true
+    working: true
+    file: "frontend/app/schedule.tsx"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: false
+          agent: "user"
+          comment: "❌ User reported: Gallery images failing to upload"
+        - working: true
+          agent: "main"
+          comment: "✅ FIXED: Replaced deprecated MediaTypeOptions.Images with string 'images'. Gallery picker now working with launchImageLibraryAsync() with quality: 0.5 and base64: true."
+
+  - task: "Schedule Upload UI - Camera"
+    implemented: true
+    working: true
+    file: "frontend/app/schedule.tsx"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: false
+          agent: "user"
+          comment: "❌ User reported: Camera freezing when attempting to photograph schedule"
+        - working: true
+          agent: "main"
+          comment: "✅ FIXED: Reduced camera quality to 0.3 (from higher values) to prevent large file handling issues that caused freezing. Using launchCameraAsync() with mediaTypes: 'images', quality: 0.3, base64: true."
+
+  - task: "Schedule Manual Entry UI"
+    implemented: true
+    working: true
+    file: "frontend/app/schedule.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "✅ Manual entry modal implemented with dynamic form fields. Users can add multiple days with date (YYYY-MM-DD), start time (HH:MM), and end time (HH:MM). Validation ensures at least one complete entry."
+
+  - task: "Schedule Edit Functionality"
+    implemented: true
+    working: true
+    file: "frontend/app/schedule.tsx"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: false
+          agent: "user"
+          comment: "❌ User reported: Unable to edit manually entered work schedules"
+        - working: true
+          agent: "main"
+          comment: "✅ IMPLEMENTED: Users can now tap on any schedule entry in 'Artėjancios darbo dienos' section to edit. Edit modal allows changing date, start time, and end time. Changes are saved via POST /api/schedule/manual endpoint."
+
+  - task: "Lithuanian UI Text Correction"
+    implemented: true
+    working: true
+    file: "frontend/app/schedule.tsx"
+    stuck_count: 1
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        - working: false
+          agent: "user"
+          comment: "❌ User reported: Incorrect Lithuanian text 'Artejantys darbo dienos'"
+        - working: true
+          agent: "main"
+          comment: "✅ FIXED: Changed to correct Lithuanian 'Artėjancios darbo dienos' on line 549 of schedule.tsx"
 
 metadata:
   created_by: "testing_agent"
