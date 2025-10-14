@@ -63,8 +63,8 @@ export default function ScheduleScreen() {
     try {
       setUploading(true);
 
-      // FIXED: Remove FileSystem.EncodingType
-      const base64 = await FileSystem.readAsStringAsync(uri, {
+      // FIXED: Use legacy API to avoid deprecation warning
+      const base64 = await readAsStringAsync(uri, {
         encoding: 'base64',
       });
 
