@@ -321,12 +321,12 @@ export default function ScheduleScreen() {
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.methodButton} onPress={pickImage}>
-                <Ionicons name="camera" size={32} color="#10b981" />
+              <TouchableOpacity style={styles.methodButton} onPress={pickImageFile}>
+                <Ionicons name="image" size={32} color="#10b981" />
                 <View style={styles.methodTextContainer}>
-                  <Text style={styles.methodTitle}>Nuotrauka (OCR)</Text>
+                  <Text style={styles.methodTitle}>Nuotrauka (JPG/HEIC)</Text>
                   <Text style={styles.methodDescription}>
-                    Nufotografuokite grafiką - AI atpažins tekstą
+                    Pasirinkite grafiko nuotrauką iš galerijos
                   </Text>
                 </View>
               </TouchableOpacity>
