@@ -11,7 +11,7 @@ from datetime import datetime
 import time
 
 # Backend URL from environment
-BACKEND_URL = "https://timeguard-6.preview.emergentagent.com/api"
+BACKEND_URL = "https://worklog-app-10.preview.emergentagent.com/api"
 
 # Test data
 TEST_SETTINGS = {
