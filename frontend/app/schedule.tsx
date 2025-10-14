@@ -83,73 +83,7 @@ export default function ScheduleScreen() {
     }
   };
 
-  // Method 2: Image File Upload (JPG/HEIC/PNG)
-  const pickImageFile = async () => {
-    try {
-      setShowMethodModal(false);
-      setUploading(true);
-      
-      // Use DocumentPicker to select image files
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif'],
-        copyToCacheDirectory: true,
-        multiple: false,
-      });
-
-      if (result.canceled) {
-        setUploading(false);
-        return;
-      }
-
-      const file = result.assets[0];
-      console.log('Selected file:', file.name, file.mimeType);
-      
-      // Read file as base64
-      const base64 = await readAsStringAsync(file.uri, {
-        encoding: 'base64',
-      });
-
-      // Detect mime type from file
-      let mimeType = file.mimeType || 'image/jpeg';
-      const fileName = file.name.toLowerCase();
-      
-      if (fileName.endsWith('.heic') || fileName.endsWith('.heif')) {
-        mimeType = 'image/heic';
-      } else if (fileName.endsWith('.png')) {
-        mimeType = 'image/png';
-      } else if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
-        mimeType = 'image/jpeg';
-      }
-
-      console.log('Uploading image with mime type:', mimeType);
-      await uploadImage(base64, mimeType);
-    } catch (error) {
-      console.error('Error picking image file:', error);
-      Alert.alert('Klaida', 'Nepavyko pasirinkti nuotraukos: ' + error.message);
-      setUploading(false);
-    }
-  };
-
-  const uploadImage = async (base64: string, mimeType: string = 'image/jpeg') => {
-    try {
-      setUploading(true);
-
-      const response = await axios.post(`${BACKEND_URL}/api/schedule/upload-image`, {
-        image_base64: `data:${mimeType};base64,${base64}`,
-      });
-
-      Alert.alert('Sėkmė', 'Grafikas atpažintas ir išsaugotas!');
-      setSchedule(response.data.schedule);
-    } catch (error: any) {
-      console.error('Error uploading image:', error);
-      const errorMessage = error.response?.data?.detail || 'Nepavyko atpažinti grafiko.';
-      Alert.alert('Klaida', errorMessage);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  // Method 3: Manual Entry
+  // Method 2: Manual Entry
   const openManualEntry = () => {
     setShowMethodModal(false);
     setManualEntries([{ date: '', start: '', end: '' }]);
