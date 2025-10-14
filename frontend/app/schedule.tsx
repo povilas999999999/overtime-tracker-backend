@@ -106,12 +106,12 @@ export default function ScheduleScreen() {
     }
   };
 
-  const uploadImage = async (base64: string) => {
+  const uploadImage = async (base64: string, mimeType: string = 'image/jpeg') => {
     try {
       setUploading(true);
 
       const response = await axios.post(`${BACKEND_URL}/api/schedule/upload-image`, {
-        image_base64: `data:image/jpeg;base64,${base64}`,
+        image_base64: `data:${mimeType};base64,${base64}`,
       });
 
       Alert.alert('Sėkmė', 'Grafikas atpažintas ir išsaugotas!');
