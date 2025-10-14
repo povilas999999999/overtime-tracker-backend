@@ -88,18 +88,22 @@ export default function ScheduleScreen() {
   const pickImageFile = async () => {
     try {
       setShowMethodModal(false);
+      setUploading(true);
       
       // Use DocumentPicker to select image files
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['image/*'],
+        type: ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif'],
         copyToCacheDirectory: true,
+        multiple: false,
       });
 
       if (result.canceled) {
+        setUploading(false);
         return;
       }
 
       const file = result.assets[0];
+      console.log('Selected file:', file.name, file.mimeType);
       
       // Read file as base64
       const base64 = await readAsStringAsync(file.uri, {
@@ -108,16 +112,22 @@ export default function ScheduleScreen() {
 
       // Detect mime type from file
       let mimeType = file.mimeType || 'image/jpeg';
-      if (file.name.toLowerCase().endsWith('.heic')) {
+      const fileName = file.name.toLowerCase();
+      
+      if (fileName.endsWith('.heic') || fileName.endsWith('.heif')) {
         mimeType = 'image/heic';
-      } else if (file.name.toLowerCase().endsWith('.png')) {
+      } else if (fileName.endsWith('.png')) {
         mimeType = 'image/png';
+      } else if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+        mimeType = 'image/jpeg';
       }
 
-      uploadImage(base64, mimeType);
+      console.log('Uploading image with mime type:', mimeType);
+      await uploadImage(base64, mimeType);
     } catch (error) {
       console.error('Error picking image file:', error);
-      Alert.alert('Klaida', 'Nepavyko pasirinkti nuotraukos.');
+      Alert.alert('Klaida', 'Nepavyko pasirinkti nuotraukos: ' + error.message);
+      setUploading(false);
     }
   };
 
