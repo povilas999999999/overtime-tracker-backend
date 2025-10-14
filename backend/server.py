@@ -309,13 +309,31 @@ async def delete_schedule(schedule_id: str):
 
 @api_router.post("/schedule/upload-image")
 async def upload_schedule_image(request: ImageUploadRequest):
-    """Upload and parse work schedule from image using OCR"""
+    """Upload and parse work schedule from image file (JPG, PNG, HEIC) using AI"""
     try:
         # Decode base64 image
-        image_data = base64.b64decode(request.image_base64.split(',')[1] if ',' in request.image_base64 else request.image_base64)
+        base64_str = request.image_base64
         
-        # Save temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp_file:
+        # Detect mime type from data URL
+        mime_type = "image/jpeg"  # default
+        file_ext = ".jpg"
+        
+        if ',' in base64_str:
+            header = base64_str.split(',')[0]
+            if 'image/png' in header:
+                mime_type = "image/png"
+                file_ext = ".png"
+            elif 'image/heic' in header or 'image/heif' in header:
+                mime_type = "image/heic"
+                file_ext = ".heic"
+            base64_data = base64_str.split(',')[1]
+        else:
+            base64_data = base64_str
+        
+        image_data = base64.b64decode(base64_data)
+        
+        # Save temporarily with correct extension
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp_file:
             tmp_file.write(image_data)
             tmp_path = tmp_file.name
         
@@ -324,7 +342,7 @@ async def upload_schedule_image(request: ImageUploadRequest):
             if not emergent_key:
                 raise ValueError("EMERGENT_LLM_KEY not found in environment")
             
-            # Initialize chat with Gemini (supports image)
+            # Initialize chat with Gemini (supports images)
             session_id_str = f"image-ocr-{uuid.uuid4()}"
             chat = LlmChat(
                 api_key=emergent_key,
@@ -332,10 +350,10 @@ async def upload_schedule_image(request: ImageUploadRequest):
                 system_message="You are an expert at extracting work schedule information from images."
             ).with_model("gemini", "gemini-2.0-flash")
             
-            # Create file attachment
+            # Create file attachment with correct mime type
             image_file = FileContentWithMimeType(
                 file_path=tmp_path,
-                mime_type="image/jpeg"
+                mime_type=mime_type
             )
             
             # Ask AI to extract schedule (same prompt as PDF)
