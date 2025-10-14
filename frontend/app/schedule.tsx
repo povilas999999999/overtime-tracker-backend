@@ -89,17 +89,32 @@ export default function ScheduleScreen() {
     try {
       setShowMethodModal(false);
       
-      // Use ImagePicker to select image file from gallery
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
-        quality: 0.7,
-        base64: true,
-        allowsEditing: false,
+      // Use DocumentPicker to select image files
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/*'],
+        copyToCacheDirectory: true,
       });
 
-      if (!result.canceled && result.assets[0].base64) {
-        uploadImage(result.assets[0].base64, result.assets[0].mimeType || 'image/jpeg');
+      if (result.canceled) {
+        return;
       }
+
+      const file = result.assets[0];
+      
+      // Read file as base64
+      const base64 = await readAsStringAsync(file.uri, {
+        encoding: 'base64',
+      });
+
+      // Detect mime type from file
+      let mimeType = file.mimeType || 'image/jpeg';
+      if (file.name.toLowerCase().endsWith('.heic')) {
+        mimeType = 'image/heic';
+      } else if (file.name.toLowerCase().endsWith('.png')) {
+        mimeType = 'image/png';
+      }
+
+      uploadImage(base64, mimeType);
     } catch (error) {
       console.error('Error picking image file:', error);
       Alert.alert('Klaida', 'Nepavyko pasirinkti nuotraukos.');
