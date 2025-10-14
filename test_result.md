@@ -333,9 +333,16 @@ metadata:
 
 test_plan:
   current_focus:
-    - "All backend API endpoints tested and verified"
+    - "Schedule Upload UI - PDF"
+    - "Schedule Upload UI - Image Gallery"
+    - "Schedule Upload UI - Camera"
+    - "Schedule Manual Entry UI"
+    - "Schedule Edit Functionality"
+    - "Schedule PDF Upload API"
+    - "Schedule Image OCR API"
+    - "Manual Schedule Entry API"
   stuck_tasks: []
-  test_all: true
+  test_all: false
   test_priority: "high_first"
 
 agent_communication:
