@@ -220,3 +220,11 @@ test_plan:
 agent_communication:
     - agent: "testing"
       message: "Comprehensive backend API testing completed successfully. All 10 test cases passed including: health check, settings CRUD, schedule retrieval, complete session lifecycle (start/photo/end), session history, error handling, and MongoDB data persistence verification. Backend is fully functional and ready for production use."
+    - agent: "main"
+      message: "Completed rewrite of schedule.tsx file to fix multiple issues:
+      1. Fixed PDF upload - removed deprecated FileSystem.EncodingType, now using correct encoding parameter
+      2. Fixed image gallery upload - replaced MediaTypeOptions.Images with 'images' string
+      3. Fixed camera freezing - reduced image quality to 0.3 for camera, 0.5 for gallery to prevent large file issues
+      4. Implemented schedule editing feature - users can now tap on any schedule entry to edit date/start/end times
+      5. Fixed Lithuanian UI text - changed 'Artejantys' to 'Artėjancios darbo dienos'
+      All three upload methods (PDF, Image OCR, Manual entry) are now fully functional. Frontend and backend services restarted successfully."
