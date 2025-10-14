@@ -269,6 +269,14 @@ async def get_current_schedule():
         return {"schedule": None}
     return {"schedule": WorkSchedule(**schedule).dict()}
 
+@api_router.delete("/schedule/{schedule_id}")
+async def delete_schedule(schedule_id: str):
+    """Delete a schedule"""
+    result = await db.schedules.delete_one({"id": schedule_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    return {"success": True, "message": "Schedule deleted"}
+
 @api_router.post("/schedule/upload-image")
 async def upload_schedule_image(request: ImageUploadRequest):
     """Upload and parse work schedule from image using OCR"""
