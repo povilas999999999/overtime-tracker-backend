@@ -156,28 +156,43 @@ async def parse_pdf_schedule(pdf_path: str) -> List[dict]:
         message = UserMessage(
             text="""Extract the work schedule from this Lithuanian PDF document.
 
-IMPORTANT: This schedule has TWO time values per day:
-- FIRST row (top number in cell) = START time (pradžia)
-- SECOND row (bottom number in cell) = END time (pabaiga)
+CRITICAL STRUCTURE UNDERSTANDING:
+The schedule is organized as a calendar grid where each cell represents ONE day of the month.
 
-For example, if a cell shows:
-07:30
-15:30
+CELL STRUCTURE (from top to bottom):
+1. DAY NUMBER (1-31) - This is at the VERY TOP of each cell
+2. START TIME (HH:MM) - Below the day number  
+3. END TIME (HH:MM) - Below the start time
+4. IGNORE everything else below the end time
 
-This means: start=07:30, end=15:30
+Example cell:
+14        ← Day number (October 14)
+07:30     ← Start time
+15:30     ← End time
+(ignore any other text below)
 
-SKIP days marked with: P, M, BN, or empty cells (these are days off)
+SPECIAL MARKINGS TO SKIP (these are NOT work days):
+- M = mamadienis (day off)
+- P = poilsio diena (rest day)
+- A = atostogos (vacation)
+- BN = budėjimas namie (on-call at home - skip this)
+- Empty cells = no work
 
-Return ONLY a JSON array with this exact format:
+EXTRACTION RULES:
+1. Find the year and month from header (e.g., "2025m. spalio mėn" = October 2025)
+2. For EACH numbered day (1-31):
+   - Look for the day NUMBER at the top of the cell
+   - If you see M, P, A, or BN → SKIP this day
+   - If you see TWO times (start and end) → Extract them
+   - Combine day number + year/month to create full date (YYYY-MM-DD)
+3. ONLY extract days that have BOTH start and end times
+4. Ignore any text or numbers below the end time
+
+OUTPUT FORMAT:
+Return ONLY a valid JSON array:
 [{"date": "YYYY-MM-DD", "start": "HH:MM", "end": "HH:MM"}, ...]
 
-Rules:
-- Extract the year and month from the document header (e.g., "2025m. spalio mėn" = October 2025)
-- For each numbered day (1-31), combine with the year/month to create full date
-- Use the FIRST time as "start" and SECOND time as "end"
-- Use 24-hour time format
-- Skip days with P, M, BN, or no times
-- Return valid JSON array only, no additional text or explanation""",
+Use 24-hour time format. No additional text or explanation.""",
             file_contents=[pdf_file]
         )
         
