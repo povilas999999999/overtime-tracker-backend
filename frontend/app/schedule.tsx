@@ -240,7 +240,7 @@ export default function ScheduleScreen() {
           <Ionicons name="cloud-upload" size={48} color="#2563eb" />
           <Text style={styles.uploadTitle}>Įkelti darbo grafiką</Text>
           <Text style={styles.uploadDescription}>
-            Pasirinkite vieną iš trijų būdų įkelti savo darbo grafiką
+            Pasirinkite vieną iš dviejų būdų įkelti savo darbo grafiką
           </Text>
           <TouchableOpacity 
             style={styles.uploadButton} 
