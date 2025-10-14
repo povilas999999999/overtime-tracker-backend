@@ -346,18 +346,8 @@ export default function ScheduleScreen() {
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.methodButton} onPress={pickImageFile}>
-                <Ionicons name="image" size={32} color="#10b981" />
-                <View style={styles.methodTextContainer}>
-                  <Text style={styles.methodTitle}>Nuotrauka (JPG/HEIC)</Text>
-                  <Text style={styles.methodDescription}>
-                    Pasirinkite grafiko nuotrauką iš galerijos
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
               <TouchableOpacity style={styles.methodButton} onPress={openManualEntry}>
-                <Ionicons name="create" size={32} color="#f59e0b" />
+                <Ionicons name="create" size={32} color="#10b981" />
                 <View style={styles.methodTextContainer}>
                   <Text style={styles.methodTitle}>Rankinis įvedimas</Text>
                   <Text style={styles.methodDescription}>
