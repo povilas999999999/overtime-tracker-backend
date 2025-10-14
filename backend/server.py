@@ -154,15 +154,30 @@ async def parse_pdf_schedule(pdf_path: str) -> List[dict]:
         
         # Ask AI to extract schedule
         message = UserMessage(
-            text="""Extract the work schedule from this PDF. 
-            Return ONLY a JSON array with this exact format:
-            [{"date": "YYYY-MM-DD", "start": "HH:MM", "end": "HH:MM"}, ...]
-            
-            Rules:
-            - Use 24-hour time format
-            - Include only future dates or current month dates
-            - If no specific dates, assume next 30 days
-            - Return valid JSON only, no additional text""",
+            text="""Extract the work schedule from this Lithuanian PDF document.
+
+IMPORTANT: This schedule has TWO time values per day:
+- FIRST row (top number in cell) = START time (pradžia)
+- SECOND row (bottom number in cell) = END time (pabaiga)
+
+For example, if a cell shows:
+07:30
+15:30
+
+This means: start=07:30, end=15:30
+
+SKIP days marked with: P, M, BN, or empty cells (these are days off)
+
+Return ONLY a JSON array with this exact format:
+[{"date": "YYYY-MM-DD", "start": "HH:MM", "end": "HH:MM"}, ...]
+
+Rules:
+- Extract the year and month from the document header (e.g., "2025m. spalio mėn" = October 2025)
+- For each numbered day (1-31), combine with the year/month to create full date
+- Use the FIRST time as "start" and SECOND time as "end"
+- Use 24-hour time format
+- Skip days with P, M, BN, or no times
+- Return valid JSON array only, no additional text or explanation""",
             file_contents=[pdf_file]
         )
         
