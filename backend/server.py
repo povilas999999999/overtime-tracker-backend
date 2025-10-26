@@ -511,8 +511,6 @@ async def end_work_session(request: WorkSessionEnd):
         # If start_time is naive, assume it's in Lithuania time
         start_time = start_time.replace(tzinfo=lithuania_tz)
     
-    actual_minutes = int((end_time - start_time).total_seconds() / 60)
-    
     overtime_minutes = 0
     if session.get('scheduled_end'):
         # Calculate overtime based on actual end time vs scheduled end time
