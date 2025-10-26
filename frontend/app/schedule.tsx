@@ -85,7 +85,7 @@ export default function ScheduleScreen() {
     setPendingFileName('');
   };
 
-  const uploadFile = async (uri: string, filename: string) => {
+  const uploadFile = async (uri: string, filename: string, year?: number, month?: number) => {
     try {
       setUploading(true);
 
@@ -93,10 +93,18 @@ export default function ScheduleScreen() {
         encoding: 'base64',
       });
 
-      const response = await axios.post(`${BACKEND_URL}/api/schedule/upload-file`, {
+      const requestData: any = {
         file_content: `data:application/octet-stream;base64,${base64}`,
         file_name: filename,
-      });
+      };
+      
+      // Add year/month if provided
+      if (year && month) {
+        requestData.year = year;
+        requestData.month = month;
+      }
+
+      const response = await axios.post(`${BACKEND_URL}/api/schedule/upload-file`, requestData);
 
       const parsedDays = response.data.parsed_days || 0;
       Alert.alert('Sėkmė', `Darbo grafikas įkeltas! Rastos ${parsedDays} darbo dienos.`);
