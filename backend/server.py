@@ -496,9 +496,21 @@ async def end_work_session(request: WorkSessionEnd):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    # Use datetime.now() for local time
-    end_time = datetime.now()
+    # FIXED: Use Lithuania timezone (UTC+2/UTC+3)
+    from datetime import timedelta, timezone
+    lithuania_tz = timezone(timedelta(hours=2))  # EET (UTC+2) - Winter
+    # TODO: Handle EEST (UTC+3) for summer - for now using +2
+    
+    # Get current time in Lithuania timezone
+    end_time = datetime.now(lithuania_tz)
+    
     start_time = session['start_time']
+    
+    # Ensure start_time has timezone info
+    if start_time.tzinfo is None:
+        # If start_time is naive, assume it's in Lithuania time
+        start_time = start_time.replace(tzinfo=lithuania_tz)
+    
     actual_minutes = int((end_time - start_time).total_seconds() / 60)
     
     overtime_minutes = 0
@@ -506,16 +518,19 @@ async def end_work_session(request: WorkSessionEnd):
         # Calculate overtime based on actual end time vs scheduled end time
         from datetime import datetime as dt
         
-        # Get today's date with scheduled end time
+        # Get scheduled end time
         scheduled_end_str = session['scheduled_end']  # "HH:MM"
         scheduled_end_time = dt.strptime(scheduled_end_str, "%H:%M").time()
         
-        # Combine with today's date
+        # Combine with today's date in Lithuania timezone
         scheduled_end_datetime = datetime.combine(end_time.date(), scheduled_end_time)
+        scheduled_end_datetime = scheduled_end_datetime.replace(tzinfo=lithuania_tz)
         
         # Calculate overtime: how many minutes AFTER scheduled end time
         overtime_seconds = (end_time - scheduled_end_datetime).total_seconds()
         overtime_minutes = max(0, int(overtime_seconds / 60))
+        
+        logger.info(f"Overtime calculation: end_time={end_time}, scheduled_end={scheduled_end_datetime}, overtime_minutes={overtime_minutes}")
     
     # Update session
     await db.sessions.update_one(
