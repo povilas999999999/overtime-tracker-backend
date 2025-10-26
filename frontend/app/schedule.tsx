@@ -274,12 +274,12 @@ export default function ScheduleScreen() {
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Pasirinkite įkėlimo metodą</Text>
               
-              <TouchableOpacity style={styles.methodButton} onPress={pickPDF}>
+              <TouchableOpacity style={styles.methodButton} onPress={pickFile}>
                 <Ionicons name="document" size={32} color="#2563eb" />
                 <View style={styles.methodTextContainer}>
-                  <Text style={styles.methodTitle}>PDF Failas</Text>
+                  <Text style={styles.methodTitle}>Excel/CSV/TXT Failas</Text>
                   <Text style={styles.methodDescription}>
-                    Įkelkite PDF dokumentą su grafiku
+                    Įkelkite Excel, CSV arba TXT failą su grafiku
                   </Text>
                 </View>
               </TouchableOpacity>
