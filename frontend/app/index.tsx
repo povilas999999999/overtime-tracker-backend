@@ -403,9 +403,18 @@ export default function Index() {
   };
 
   const startWork = async () => {
+    // If location permission not granted, request it first
     if (!locationPermission) {
-      Alert.alert('Klaida', 'Reikalingas leidimas naudoti vietovę.');
-      return;
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Leidimas būtinas',
+          'Programai reikalingas leidimas naudoti vietovę, kad galėtų pradėti darbo sesiją.\n\nEikite į iPhone Settings ir suteikite leidimą.',
+          [{ text: 'Gerai' }]
+        );
+        return;
+      }
+      setLocationPermission(true);
     }
 
     try {
