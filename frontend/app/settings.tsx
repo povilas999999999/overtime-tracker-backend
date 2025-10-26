@@ -233,6 +233,29 @@ Pagarbiai`;
           </View>
         </View>
 
+        {/* Timezone Settings */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>⏰ Laiko Juosta</Text>
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>UTC Offset (valandos)</Text>
+            <TextInput
+              style={styles.input}
+              value={timezoneOffset}
+              onChangeText={setTimezoneOffset}
+              keyboardType="number-pad"
+              placeholder="2"
+            />
+            <Text style={styles.hint}>
+              Populiarios laiko juostos:{'\n'}
+              • 0 = UTC (Londonas){'\n'}
+              • 1 = CET (Berlynas, Paryžius){'\n'}
+              • 2 = EET (Lietuva, Vilnius) ✓{'\n'}
+              • 3 = EEST (Maskva)
+            </Text>
+          </View>
+        </View>
+
         {/* Geofencing Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Darbo vieta (Geofencing)</Text>
