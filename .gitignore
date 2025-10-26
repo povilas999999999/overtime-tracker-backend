@@ -91,3 +91,7 @@ android-sdk/ -e
 *.env.*
 project.zip
 projectsenas.zip
+-e 
+# Environment files
+*.env
+*.env.*
