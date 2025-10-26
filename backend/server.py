@@ -181,37 +181,7 @@ def send_email_with_photos(recipient: str, subject: str, body: str, photos: List
 async def root():
     return {"message": "Overtime Tracking API"}
 
-@api_router.post("/schedule/upload")
-async def upload_schedule(request: PDFUploadRequest):
-    """Upload and parse work schedule PDF"""
-    try:
-        # Decode base64 PDF
-        pdf_data = base64.b64decode(request.pdf_base64.split(',')[1] if ',' in request.pdf_base64 else request.pdf_base64)
-        
-        # Save temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-            tmp_file.write(pdf_data)
-            tmp_path = tmp_file.name
-        
-        try:
-            # Parse with AI
-            work_days = await parse_pdf_schedule(tmp_path)
-            
-            # Save to database
-            schedule = WorkSchedule(
-                work_days=work_days,
-                pdf_filename=request.filename
-            )
-            await db.schedules.insert_one(schedule.dict())
-            
-            return {"success": True, "schedule": schedule.dict()}
-        finally:
-            # Clean up temp file
-            os.unlink(tmp_path)
-            
-    except Exception as e:
-        logger.error(f"Error uploading schedule: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+# PDF upload endpoint removed - use /api/schedule/manual instead
 
 @api_router.get("/schedule/current")
 async def get_current_schedule():
