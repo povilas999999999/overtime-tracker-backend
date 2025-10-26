@@ -263,8 +263,13 @@ export default function ScheduleScreen() {
 
   const getUpcomingDays = () => {
     if (!schedule?.work_days) return [];
-    const today = new Date().toISOString().split('T')[0];
-    return schedule.work_days.filter((day: any) => day.date >= today).slice(0, 10);
+    // Show ALL work days (including past 7 days for editing)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const cutoffDate = sevenDaysAgo.toISOString().split('T')[0];
+    
+    // Return all days from 7 days ago onwards (no limit!)
+    return schedule.work_days.filter((day: any) => day.date >= cutoffDate);
   };
 
   return (
