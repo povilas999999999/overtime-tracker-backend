@@ -322,6 +322,18 @@ export default function Index() {
       });
 
       // Check if auto-send is enabled
+      // Check if session still exists (hasn't been ended already)
+      try {
+        const sessionCheck = await axios.get(`${BACKEND_URL}/api/session/active`);
+        if (!sessionCheck.data.session || sessionCheck.data.session.id !== sessionId) {
+          console.log('Session already ended, skipping email send');
+          return;
+        }
+      } catch (e) {
+        console.log('Session not found, skipping email send');
+        return;
+      }
+
       const autoSend = settings?.auto_send_email_on_geofence || false;
 
       if (autoSend) {
