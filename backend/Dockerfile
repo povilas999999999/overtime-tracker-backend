@@ -23,5 +23,5 @@ EXPOSE 8001
 
 # Health check removed - Railway will handle this
 
-# Run the application
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001"]
+# Run the application with PORT environment variable support
+CMD uvicorn server:app --host 0.0.0.0 --port ${PORT:-8001}
