@@ -290,9 +290,10 @@ async def upload_schedule_file(request: dict):
 def parse_dataframe_to_schedule(df, year_month=None):
     """Parse pandas DataFrame to schedule format
     
-    Supports two formats:
+    Supports formats:
     1. Full date format: date (YYYY-MM-DD), start (HH:MM), end (HH:MM)
     2. Day number format: day (1-31), start (HH:MM), end (HH:MM)
+    3. Multi-month format: Multiple rows with day numbers spanning multiple months
     
     Args:
         df: pandas DataFrame
@@ -300,6 +301,7 @@ def parse_dataframe_to_schedule(df, year_month=None):
                    If None, uses current year and month.
     """
     from datetime import datetime
+    from calendar import monthrange
     work_days = []
     
     # Find columns
@@ -329,14 +331,19 @@ def parse_dataframe_to_schedule(df, year_month=None):
     if not (day_col and start_col and end_col):
         raise ValueError("Could not identify day/date, start, and end columns")
     
-    # Determine year and month
+    # Determine starting year and month
     if not year_month:
         now = datetime.now()
-        year, month = now.year, now.month
+        current_year, current_month = now.year, now.month
     else:
-        year, month = year_month
+        current_year, current_month = year_month
     
-    for _, row in df.iterrows():
+    # Track current month for multi-month detection
+    working_year = current_year
+    working_month = current_month
+    last_day_num = 0
+    
+    for idx, row in df.iterrows():
         try:
             day_val = str(row[day_col]).strip()
             start_val = str(row[start_col]).strip()
@@ -348,12 +355,12 @@ def parse_dataframe_to_schedule(df, year_month=None):
             
             # Skip rows with P, M, A, BN markers (non-work days)
             if end_val.upper() in ['P', 'M', 'A', 'BN'] or start_val.upper() in ['P', 'M', 'A', 'BN']:
-                logger.info(f"Skipping non-work day: {day_val}")
+                logger.debug(f"Skipping non-work day: {day_val}")
                 continue
             
-            # Skip rows with empty start time
-            if start_val in ['', 'nan', 'NaN', 'None']:
-                logger.info(f"Skipping day with no start time: {day_val}")
+            # Skip rows with empty or invalid start time
+            if start_val in ['', 'nan', 'NaN', 'None', '00:00']:
+                logger.debug(f"Skipping day {day_val} - no valid start time")
                 continue
             
             # Check if day_val is a full date or just day number
@@ -364,11 +371,29 @@ def parse_dataframe_to_schedule(df, year_month=None):
                 # Day number format - convert to full date
                 try:
                     day_num = int(float(day_val))  # float first to handle "1.0"
-                    if 1 <= day_num <= 31:
-                        date_str = f"{year:04d}-{month:02d}-{day_num:02d}"
-                    else:
+                    
+                    if not (1 <= day_num <= 31):
                         logger.warning(f"Invalid day number: {day_val}")
                         continue
+                    
+                    # Multi-month detection: if day number goes backwards, move to next month
+                    if last_day_num > 0 and day_num < last_day_num:
+                        # Day number decreased - likely new month
+                        working_month += 1
+                        if working_month > 12:
+                            working_month = 1
+                            working_year += 1
+                        logger.info(f"Detected new month: {working_year}-{working_month:02d}")
+                    
+                    # Check if day_num is valid for this month
+                    max_day = monthrange(working_year, working_month)[1]
+                    if day_num > max_day:
+                        logger.warning(f"Day {day_num} invalid for {working_year}-{working_month:02d} (max: {max_day})")
+                        continue
+                    
+                    date_str = f"{working_year:04d}-{working_month:02d}-{day_num:02d}"
+                    last_day_num = day_num
+                    
                 except ValueError:
                     logger.warning(f"Could not parse day: {day_val}")
                     continue
@@ -378,10 +403,12 @@ def parse_dataframe_to_schedule(df, year_month=None):
                 'start': start_val,
                 'end': end_val
             })
+            
         except Exception as e:
             logger.warning(f"Skipping row due to error: {e}")
             continue
     
+    logger.info(f"Successfully parsed {len(work_days)} work days")
     return work_days
 
 @api_router.post("/schedule/manual")
