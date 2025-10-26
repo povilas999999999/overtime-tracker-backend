@@ -199,129 +199,133 @@ async def delete_schedule(schedule_id: str):
         raise HTTPException(status_code=404, detail="Schedule not found")
     return {"success": True, "message": "Schedule deleted"}
 
-@api_router.post("/schedule/upload-image")
-async def upload_schedule_image(request: ImageUploadRequest):
-    """Upload and parse work schedule from image file (JPG, PNG, HEIC) using AI"""
+@api_router.post("/schedule/upload-file")
+async def upload_schedule_file(request: dict):
+    """Upload Excel/CSV/TXT file with work schedule"""
     try:
-        # Decode base64 image
-        base64_str = request.image_base64
+        file_content = request.get('file_content')  # base64 encoded
+        file_name = request.get('file_name', 'schedule.csv')
         
-        # Detect mime type from data URL
-        mime_type = "image/jpeg"  # default
-        file_ext = ".jpg"
+        if not file_content:
+            raise HTTPException(status_code=400, detail="No file content provided")
         
-        if ',' in base64_str:
-            header = base64_str.split(',')[0]
-            if 'image/png' in header:
-                mime_type = "image/png"
-                file_ext = ".png"
-            elif 'image/heic' in header or 'image/heif' in header:
-                mime_type = "image/heic"
-                file_ext = ".heic"
-            base64_data = base64_str.split(',')[1]
+        # Decode base64
+        file_data = base64.b64decode(file_content.split(',')[1] if ',' in file_content else file_content)
+        
+        # Determine file type
+        file_ext = file_name.lower().split('.')[-1]
+        
+        work_days = []
+        
+        if file_ext in ['xlsx', 'xls']:
+            # Excel file
+            import pandas as pd
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{file_ext}') as tmp:
+                tmp.write(file_data)
+                tmp_path = tmp.name
+            
+            try:
+                df = pd.read_excel(tmp_path)
+                work_days = parse_dataframe_to_schedule(df)
+            finally:
+                os.unlink(tmp_path)
+                
+        elif file_ext == 'csv':
+            # CSV file
+            import pandas as pd
+            import io
+            df = pd.read_csv(io.BytesIO(file_data))
+            work_days = parse_dataframe_to_schedule(df)
+            
+        elif file_ext == 'txt':
+            # TXT file - expect format: date,start,end per line
+            text_content = file_data.decode('utf-8')
+            lines = text_content.strip().split('\n')
+            
+            for line in lines:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                    
+                parts = [p.strip() for p in line.split(',')]
+                if len(parts) >= 3:
+                    work_days.append({
+                        'date': parts[0],
+                        'start': parts[1],
+                        'end': parts[2]
+                    })
         else:
-            base64_data = base64_str
+            raise HTTPException(status_code=400, detail=f"Unsupported file type: {file_ext}")
         
-        image_data = base64.b64decode(base64_data)
+        if not work_days:
+            raise HTTPException(status_code=400, detail="No valid schedule data found in file")
         
-        # Save temporarily with correct extension
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp_file:
-            tmp_file.write(image_data)
-            tmp_path = tmp_file.name
+        # Save to database
+        schedule = WorkSchedule(
+            work_days=work_days,
+            pdf_filename=file_name
+        )
+        await db.schedules.insert_one(schedule.dict())
         
-        try:
-            emergent_key = os.getenv('EMERGENT_LLM_KEY')
-            if not emergent_key:
-                raise ValueError("EMERGENT_LLM_KEY not found in environment")
-            
-            # Initialize chat with Gemini (supports images)
-            session_id_str = f"image-ocr-{uuid.uuid4()}"
-            chat = LlmChat(
-                api_key=emergent_key,
-                session_id=session_id_str,
-                system_message="You are an expert at extracting work schedule information from images."
-            ).with_model("gemini", "gemini-2.0-flash")
-            
-            # Create file attachment with correct mime type
-            image_file = FileContentWithMimeType(
-                file_path=tmp_path,
-                mime_type=mime_type
-            )
-            
-            # Ask AI to extract schedule (same prompt as PDF)
-            prompt_text = """Extract the work schedule from this Lithuanian image/photo.
-
-CRITICAL STRUCTURE UNDERSTANDING:
-The schedule is organized as a calendar grid where each cell represents ONE day of the month.
-
-CELL STRUCTURE (from top to bottom):
-1. DAY NUMBER (1-31) - This is at the VERY TOP of each cell
-2. START TIME (HH:MM) - Below the day number  
-3. END TIME (HH:MM) - Below the start time
-4. IGNORE everything else below the end time
-
-Example cell:
-14        ← Day number (October 14)
-07:30     ← Start time
-15:30     ← End time
-(ignore any other text below)
-
-SPECIAL MARKINGS TO SKIP (these are NOT work days):
-- M = mamadienis (day off)
-- P = poilsio diena (rest day)
-- A = atostogos (vacation)
-- BN = budėjimas namie (on-call at home - skip this)
-- Empty cells = no work
-
-EXTRACTION RULES:
-1. Find the year and month from header (e.g., "2025m. spalio mėn" = October 2025)
-2. For EACH numbered day (1-31):
-   - Look for the day NUMBER at the top of the cell
-   - If you see M, P, A, or BN → SKIP this day
-   - If you see TWO times (start and end) → Extract them
-   - Combine day number + year/month to create full date (YYYY-MM-DD)
-3. ONLY extract days that have BOTH start and end times
-4. Ignore any text or numbers below the end time
-
-OUTPUT FORMAT:
-Return ONLY a valid JSON array:
-[{"date": "YYYY-MM-DD", "start": "HH:MM", "end": "HH:MM"}, ...]
-
-Use 24-hour time format. No additional text or explanation."""
-            
-            message = UserMessage(
-                text=prompt_text,
-                file_contents=[image_file]
-            )
-            
-            response = await chat.send_message(message)
-            logger.info(f"AI Response: {response}")
-            
-            # Parse response
-            import json
-            response_text = response.strip()
-            if "```json" in response_text:
-                response_text = response_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in response_text:
-                response_text = response_text.split("```")[1].split("```")[0].strip()
-            
-            work_days = json.loads(response_text)
-            
-            # Save to database
-            schedule = WorkSchedule(
-                work_days=work_days,
-                pdf_filename="schedule_image.jpg"
-            )
-            await db.schedules.insert_one(schedule.dict())
-            
-            return {"success": True, "schedule": schedule.dict()}
-        finally:
-            # Clean up temp file
-            os.unlink(tmp_path)
-            
+        return {"success": True, "schedule": schedule.dict(), "parsed_days": len(work_days)}
+        
     except Exception as e:
-        logger.error(f"Error processing image: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to process image: {str(e)}")
+        logger.error(f"Error processing file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to process file: {str(e)}")
+
+def parse_dataframe_to_schedule(df):
+    """Parse pandas DataFrame to schedule format"""
+    work_days = []
+    
+    # Try to find columns by common names
+    date_col = None
+    start_col = None
+    end_col = None
+    
+    for col in df.columns:
+        col_lower = str(col).lower()
+        if 'date' in col_lower or 'data' in col_lower or 'diena' in col_lower:
+            date_col = col
+        elif 'start' in col_lower or 'pradž' in col_lower or 'prad' in col_lower:
+            start_col = col
+        elif 'end' in col_lower or 'pabaig' in col_lower or 'pab' in col_lower:
+            end_col = col
+    
+    # If not found, try first 3 columns
+    if not date_col and len(df.columns) >= 1:
+        date_col = df.columns[0]
+    if not start_col and len(df.columns) >= 2:
+        start_col = df.columns[1]
+    if not end_col and len(df.columns) >= 3:
+        end_col = df.columns[2]
+    
+    if not (date_col and start_col and end_col):
+        raise ValueError("Could not identify date, start, and end columns")
+    
+    for _, row in df.iterrows():
+        try:
+            date_val = str(row[date_col]).strip()
+            start_val = str(row[start_col]).strip()
+            end_val = str(row[end_col]).strip()
+            
+            # Skip empty or invalid rows
+            if date_val in ['', 'nan', 'NaN', 'None'] or start_val in ['', 'nan', 'NaN', 'None']:
+                continue
+            
+            # Format date to YYYY-MM-DD if needed
+            if '-' not in date_val and '/' not in date_val:
+                continue  # Skip invalid dates
+            
+            work_days.append({
+                'date': date_val,
+                'start': start_val,
+                'end': end_val
+            })
+        except Exception as e:
+            logger.warning(f"Skipping row due to error: {e}")
+            continue
+    
+    return work_days
 
 @api_router.post("/schedule/manual")
 async def upload_manual_schedule(request: ManualScheduleRequest):
