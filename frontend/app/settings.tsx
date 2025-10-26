@@ -19,6 +19,7 @@ export default function SettingsScreen() {
   const [overtimeThreshold, setOvertimeThreshold] = useState('5');
   const [endOfDayReminder, setEndOfDayReminder] = useState('15');
   const [autoSendEmail, setAutoSendEmail] = useState(false);
+  const [timezoneOffset, setTimezoneOffset] = useState('2');
   const [hasWorkLocation, setHasWorkLocation] = useState(false);
   const [workLocation, setWorkLocation] = useState<any>(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
