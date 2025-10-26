@@ -18,10 +18,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Expose port
+# Expose port (informational only)
 EXPOSE 8001
 
-# Health check removed - Railway will handle this
-
-# Run uvicorn directly with PORT variable
-CMD ["sh", "-c", "echo '🚀 Starting on port ${PORT:-8001}' && uvicorn server:app --host 0.0.0.0 --port ${PORT:-8001} --log-level info"]
+# Railway will use startCommand from railway.json
+# This CMD is a fallback for local testing
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001"]
