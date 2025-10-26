@@ -475,14 +475,20 @@ async def end_work_session(request: WorkSessionEnd):
     actual_minutes = int((end_time - start_time).total_seconds() / 60)
     
     overtime_minutes = 0
-    if session.get('scheduled_start') and session.get('scheduled_end'):
-        # Calculate expected work duration
+    if session.get('scheduled_end'):
+        # Calculate overtime based on actual end time vs scheduled end time
         from datetime import datetime as dt
-        scheduled_start = dt.strptime(session['scheduled_start'], "%H:%M")
-        scheduled_end = dt.strptime(session['scheduled_end'], "%H:%M")
-        expected_minutes = int((scheduled_end - scheduled_start).total_seconds() / 60)
         
-        overtime_minutes = max(0, actual_minutes - expected_minutes)
+        # Get today's date with scheduled end time
+        scheduled_end_str = session['scheduled_end']  # "HH:MM"
+        scheduled_end_time = dt.strptime(scheduled_end_str, "%H:%M").time()
+        
+        # Combine with today's date
+        scheduled_end_datetime = datetime.combine(end_time.date(), scheduled_end_time)
+        
+        # Calculate overtime: how many minutes AFTER scheduled end time
+        overtime_seconds = (end_time - scheduled_end_datetime).total_seconds()
+        overtime_minutes = max(0, int(overtime_seconds / 60))
     
     # Update session
     await db.sessions.update_one(
