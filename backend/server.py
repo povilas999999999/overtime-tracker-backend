@@ -134,18 +134,7 @@ class EmailSendRequest(BaseModel):
     session_id: str
 
 # Helper Functions
-async def parse_pdf_schedule(pdf_path: str) -> List[dict]:
-    """Parse work schedule from PDF using AI"""
-    try:
-        emergent_key = os.getenv('EMERGENT_LLM_KEY')
-        if not emergent_key:
-            raise ValueError("EMERGENT_LLM_KEY not found in environment")
-        
-        # Read PDF file as base64
-        with open(pdf_path, 'rb') as f:
-            pdf_base64 = base64.b64encode(f.read()).decode('utf-8')
-        
-        prompt_text = """Extract the work schedule from this Lithuanian PDF document.
+# PDF/Image parsing removed - use manual schedule entry instead
 
 CRITICAL STRUCTURE UNDERSTANDING:
 The schedule is organized as a calendar grid where each cell represents ONE day of the month.
