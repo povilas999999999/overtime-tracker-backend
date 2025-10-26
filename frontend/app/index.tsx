@@ -25,7 +25,7 @@ export default function Index() {
 
   useEffect(() => {
     loadSettings();
-    checkPermissions();
+    checkPermissions(true); // Silent mode on mount - no popups!
     checkActiveSession();
   }, []);
 
