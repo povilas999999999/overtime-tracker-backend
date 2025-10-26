@@ -134,66 +134,8 @@ class EmailSendRequest(BaseModel):
     session_id: str
 
 # Helper Functions
-# PDF/Image parsing removed - use manual schedule entry instead
-
-CRITICAL STRUCTURE UNDERSTANDING:
-The schedule is organized as a calendar grid where each cell represents ONE day of the month.
-
-CELL STRUCTURE (from top to bottom):
-1. DAY NUMBER (1-31) - This is at the VERY TOP of each cell
-2. START TIME (HH:MM) - Below the day number  
-3. END TIME (HH:MM) - Below the start time
-4. IGNORE everything else below the end time
-
-Example cell:
-14        ← Day number (October 14)
-07:30     ← Start time
-15:30     ← End time
-(ignore any other text below)
-
-SPECIAL MARKINGS TO SKIP (these are NOT work days):
-- M = mamadienis (day off)
-- P = poilsio diena (rest day)
-- A = atostogos (vacation)
-- BN = budėjimas namie (on-call at home - skip this)
-- Empty cells = no work
-
-EXTRACTION RULES:
-1. Find the year and month from header (e.g., "2025m. spalio mėn" = October 2025)
-2. For EACH numbered day (1-31):
-   - Look for the day NUMBER at the top of the cell
-   - If you see M, P, A, or BN → SKIP this day
-   - If you see TWO times (start and end) → Extract them
-   - Combine day number + year/month to create full date (YYYY-MM-DD)
-3. ONLY extract days that have BOTH start and end times
-4. Ignore any text or numbers below the end time
-
-OUTPUT FORMAT:
-Return ONLY a valid JSON array:
-[{"date": "YYYY-MM-DD", "start": "HH:MM", "end": "HH:MM"}, ...]
-
-Use 24-hour time format. No additional text or explanation.""",
-            file_contents=[pdf_file]
-        )
-        
-        response = await chat.send_message(message)
-        logger.info(f"AI Response: {response}")
-        
-        # Parse response
-        import json
-        # Extract JSON from response (handle markdown code blocks)
-        response_text = response.strip()
-        if "```json" in response_text:
-            response_text = response_text.split("```json")[1].split("```")[0].strip()
-        elif "```" in response_text:
-            response_text = response_text.split("```")[1].split("```")[0].strip()
-        
-        schedule = json.loads(response_text)
-        return schedule
-        
-    except Exception as e:
-        logger.error(f"Error parsing PDF: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to parse PDF: {str(e)}")
+# PDF/Image AI parsing removed to avoid emergentintegrations dependency
+# Use manual schedule entry endpoint instead: /api/schedule/manual
 
 def send_email_with_photos(recipient: str, subject: str, body: str, photos: List[str]):
     """Send email with photos attached using Gmail SMTP"""
