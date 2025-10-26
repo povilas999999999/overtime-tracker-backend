@@ -383,7 +383,7 @@ def parse_dataframe_to_schedule(df, year_month=None):
                         if working_month > 12:
                             working_month = 1
                             working_year += 1
-                        logger.info(f"Detected new month: {working_year}-{working_month:02d}")
+                        logger.info(f"🔄 DETECTED NEW MONTH: {working_year}-{working_month:02d} (day went from {last_day_num} to {day_num})")
                     
                     # Check if day_num is valid for this month
                     max_day = monthrange(working_year, working_month)[1]
