@@ -21,6 +21,5 @@ COPY backend/ .
 # Expose port (informational only)
 EXPOSE 8001
 
-# Railway will use startCommand from railway.json
-# This CMD is a fallback for local testing
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001"]
+# Use Python script that reads PORT from environment
+CMD ["python", "start_server.py"]
