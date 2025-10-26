@@ -64,53 +64,68 @@ export default function Index() {
     };
   }, [isWorking, currentSession]);
 
-  const checkPermissions = async () => {
+  const checkPermissions = async (silent = false) => {
     try {
       let permissionsGranted = [];
       let permissionsFailed = [];
 
-      // Location - Foreground ONLY (no background needed!)
-      try {
+      // Check current permissions first (without requesting)
+      const locationPerms = await Location.getForegroundPermissionsAsync();
+      const cameraPerms = await Camera.getCameraPermissionsAsync();
+      const notifPerms = await Notifications.getPermissionsAsync();
+
+      // Update state based on current permissions
+      setLocationPermission(locationPerms.status === 'granted');
+      setCameraPermission(cameraPerms.status === 'granted');
+
+      // If silent mode (on mount), just update state and return
+      if (silent) {
+        console.log('Permission check (silent):', {
+          location: locationPerms.status,
+          camera: cameraPerms.status,
+          notifications: notifPerms.status
+        });
+        return;
+      }
+
+      // Manual permission request (when user clicks button)
+      
+      // Location
+      if (locationPerms.status !== 'granted') {
         const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
         if (locationStatus === 'granted') {
           setLocationPermission(true);
-          permissionsGranted.push('✅ Vietos leidimas (kai naudojate)');
+          permissionsGranted.push('✅ Vietos leidimas');
         } else {
-          setLocationPermission(false);
           permissionsFailed.push('❌ Vietos leidimas');
         }
-      } catch (locError) {
-        console.error('Location permission error:', locError);
-        setLocationPermission(false);
-        permissionsFailed.push('❌ Vietos leidimas (klaida)');
+      } else {
+        permissionsGranted.push('✅ Vietos leidimas');
       }
 
       // Camera
-      try {
+      if (cameraPerms.status !== 'granted') {
         const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
         if (cameraStatus === 'granted') {
           setCameraPermission(true);
           permissionsGranted.push('✅ Kamera');
         } else {
-          setCameraPermission(false);
           permissionsFailed.push('❌ Kamera');
         }
-      } catch (camError) {
-        console.error('Camera permission error:', camError);
-        permissionsFailed.push('❌ Kamera (klaida)');
+      } else {
+        permissionsGranted.push('✅ Kamera');
       }
 
       // Notifications
-      try {
+      if (notifPerms.status !== 'granted') {
         const { status: notifStatus } = await Notifications.requestPermissionsAsync();
         if (notifStatus === 'granted') {
           permissionsGranted.push('✅ Pranešimai');
         } else {
           permissionsFailed.push('❌ Pranešimai');
         }
-      } catch (notifError) {
-        console.error('Notification permission error:', notifError);
-        permissionsFailed.push('❌ Pranešimai (klaida)');
+      } else {
+        permissionsGranted.push('✅ Pranešimai');
       }
 
       // Build result message
@@ -131,17 +146,17 @@ export default function Index() {
       // Show result
       if (permissionsFailed.length === 0) {
         Alert.alert('🎉 Visi leidimai suteikti!', message);
-      } else if (permissionsGranted.length > 0) {
-        Alert.alert('Leidimų būsena', message);
       } else {
-        Alert.alert('Leidimai nesuteikti', message);
+        Alert.alert('Leidimų būsena', message);
       }
     } catch (error) {
-      console.error('Error requesting permissions:', error);
-      Alert.alert(
-        'Klaida prašant leidimų', 
-        `Įvyko klaida: ${error.message || error}\n\nBandykite:\n1. Uždaryti ir atidaryti aplikaciją\n2. Suteikti leidimus iPhone Settings`
-      );
+      console.error('Error checking permissions:', error);
+      if (!silent) {
+        Alert.alert(
+          'Klaida', 
+          `Nepavyko patikrinti leidimų: ${error.message || error}`
+        );
+      }
     }
   };
 
