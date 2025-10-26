@@ -80,6 +80,7 @@ Pagarbiai`;
         overtime_threshold_minutes: parseInt(overtimeThreshold) || 5,
         end_of_day_reminder_minutes: parseInt(endOfDayReminder) || 15,
         auto_send_email_on_geofence: autoSendEmail,
+        timezone_offset: parseInt(timezoneOffset) || 2,
         work_location: workLocation,
       });
 
