@@ -37,11 +37,16 @@ export default function ScheduleScreen() {
     }
   };
 
-  // Method 1: PDF Upload (FIXED)
-  const pickPDF = async () => {
+  // Method 1: File Upload (Excel/CSV/TXT)
+  const pickFile = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
+        type: [
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+          'application/vnd.ms-excel', // .xls
+          'text/csv', // .csv
+          'text/plain', // .txt
+        ],
         copyToCacheDirectory: true,
       });
 
@@ -51,31 +56,31 @@ export default function ScheduleScreen() {
 
       const file = result.assets[0];
       setShowMethodModal(false);
-      uploadPDF(file.uri, file.name);
+      await uploadFile(file.uri, file.name);
     } catch (error) {
-      console.error('Error picking document:', error);
+      console.error('Error picking file:', error);
       Alert.alert('Klaida', 'Nepavyko pasirinkti failo.');
     }
   };
 
-  const uploadPDF = async (uri: string, filename: string) => {
+  const uploadFile = async (uri: string, filename: string) => {
     try {
       setUploading(true);
 
-      // FIXED: Use legacy API to avoid deprecation warning
       const base64 = await readAsStringAsync(uri, {
         encoding: 'base64',
       });
 
-      const response = await axios.post(`${BACKEND_URL}/api/schedule/upload`, {
-        pdf_base64: `data:application/pdf;base64,${base64}`,
-        filename: filename,
+      const response = await axios.post(`${BACKEND_URL}/api/schedule/upload-file`, {
+        file_content: `data:application/octet-stream;base64,${base64}`,
+        file_name: filename,
       });
 
-      Alert.alert('Sėkmė', 'Darbo grafikas įkeltas ir išanalizuotas!');
+      const parsedDays = response.data.parsed_days || 0;
+      Alert.alert('Sėkmė', `Darbo grafikas įkeltas! Rastos ${parsedDays} darbo dienos.`);
       setSchedule(response.data.schedule);
     } catch (error: any) {
-      console.error('Error uploading PDF:', error);
+      console.error('Error uploading file:', error);
       const errorMessage = error.response?.data?.detail || error.message || 'Nepavyko įkelti grafiko.';
       Alert.alert('Klaida', errorMessage);
     } finally {
