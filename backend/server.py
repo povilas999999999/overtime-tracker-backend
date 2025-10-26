@@ -16,8 +16,6 @@ from email.mime.base import MIMEBase
 from email import encoders
 import base64
 import io
-import litellm
-from litellm import completion
 import asyncio
 import tempfile
 
