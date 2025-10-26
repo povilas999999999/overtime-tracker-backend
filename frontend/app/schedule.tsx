@@ -60,12 +60,29 @@ export default function ScheduleScreen() {
       }
 
       const file = result.assets[0];
+      
+      // Store file info and show year/month picker
+      setPendingFileUri(file.uri);
+      setPendingFileName(file.name);
       setShowMethodModal(false);
-      await uploadFile(file.uri, file.name);
+      setShowYearMonthModal(true);
     } catch (error) {
       console.error('Error picking file:', error);
       Alert.alert('Klaida', 'Nepavyko pasirinkti failo.');
     }
+  };
+  
+  const confirmYearMonth = async () => {
+    if (!pendingFileUri || !pendingFileName) {
+      return;
+    }
+    
+    setShowYearMonthModal(false);
+    await uploadFile(pendingFileUri, pendingFileName, parseInt(selectedYear), parseInt(selectedMonth));
+    
+    // Reset
+    setPendingFileUri(null);
+    setPendingFileName('');
   };
 
   const uploadFile = async (uri: string, filename: string) => {
