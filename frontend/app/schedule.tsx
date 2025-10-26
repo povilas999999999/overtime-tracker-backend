@@ -13,8 +13,13 @@ export default function ScheduleScreen() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showMethodModal, setShowMethodModal] = useState(false);
+  const [showYearMonthModal, setShowYearMonthModal] = useState(false);
   const [showManualModal, setShowManualModal] = useState(false);
   const [showEditDayModal, setShowEditDayModal] = useState(false);
+  const [pendingFileUri, setPendingFileUri] = useState<string | null>(null);
+  const [pendingFileName, setPendingFileName] = useState<string>('');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
   const [manualEntries, setManualEntries] = useState<any[]>([{ date: '', start: '', end: '' }]);
   const [editingDayIndex, setEditingDayIndex] = useState<number | null>(null);
   const [editDayDate, setEditDayDate] = useState('');
