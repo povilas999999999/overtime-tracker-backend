@@ -73,6 +73,7 @@ Pagarbiai"""
     overtime_threshold_minutes: int = 5  # minutes to wait after scheduled end before sending email
     end_of_day_reminder_minutes: int = 15  # minutes before scheduled end to start reminding
     auto_send_email_on_geofence: bool = False  # if False, ask user; if True, send automatically
+    timezone_offset: int = 2  # UTC offset in hours (default: Lithuania UTC+2)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class WorkSession(BaseModel):
