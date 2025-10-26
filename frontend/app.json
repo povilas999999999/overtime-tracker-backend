@@ -8,16 +8,31 @@
     "scheme": "overtimetracker",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.overtimetracker.app",
+      "buildNumber": "1.0.0",
+      "requireFullScreen": false,
+      "userInterfaceStyle": "automatic",
       "infoPlist": {
         "NSCameraUsageDescription": "Ši programa naudoja kamerą fotografuoti atliekamą darbą.",
         "NSPhotoLibraryUsageDescription": "Ši programa naudoja nuotraukų galeriją pasirinkti darbo grafikui.",
         "NSLocationWhenInUseUsageDescription": "Ši programa naudoja jūsų vietą, kad galėtų stebėti, kada esate darbo vietoje.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Ši programa naudoja jūsų vietą fone, kad galėtų automatiškai siųsti el. laišką, kai paliekate darbo vietą.",
         "NSLocationAlwaysUsageDescription": "Ši programa naudoja jūsų vietą fone, kad galėtų automatiškai siųsti el. laišką, kai paliekate darbo vietą.",
-        "UIBackgroundModes": ["location", "fetch"]
+        "UIBackgroundModes": ["location", "fetch", "remote-notification"],
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false,
+          "NSExceptionDomains": {}
+        },
+        "UIRequiresFullScreen": false,
+        "UIStatusBarStyle": "UIStatusBarStyleDefault",
+        "UIViewControllerBasedStatusBarAppearance": false
       }
     },
     "android": {
