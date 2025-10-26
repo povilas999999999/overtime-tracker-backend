@@ -16,7 +16,8 @@ from email.mime.base import MIMEBase
 from email import encoders
 import base64
 import io
-from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContentWithMimeType
+import litellm
+from litellm import completion
 import asyncio
 import tempfile
 
