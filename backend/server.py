@@ -141,22 +141,11 @@ async def parse_pdf_schedule(pdf_path: str) -> List[dict]:
         if not emergent_key:
             raise ValueError("EMERGENT_LLM_KEY not found in environment")
         
-        # Initialize chat with Gemini (supports file attachments)
-        chat = LlmChat(
-            api_key=emergent_key,
-            session_id=f"pdf-parse-{uuid.uuid4()}",
-            system_message="You are an expert at extracting work schedule information from documents."
-        ).with_model("gemini", "gemini-2.0-flash")
+        # Read PDF file as base64
+        with open(pdf_path, 'rb') as f:
+            pdf_base64 = base64.b64encode(f.read()).decode('utf-8')
         
-        # Create file attachment
-        pdf_file = FileContentWithMimeType(
-            file_path=pdf_path,
-            mime_type="application/pdf"
-        )
-        
-        # Ask AI to extract schedule
-        message = UserMessage(
-            text="""Extract the work schedule from this Lithuanian PDF document.
+        prompt_text = """Extract the work schedule from this Lithuanian PDF document.
 
 CRITICAL STRUCTURE UNDERSTANDING:
 The schedule is organized as a calendar grid where each cell represents ONE day of the month.
