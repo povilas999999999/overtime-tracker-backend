@@ -273,51 +273,94 @@ async def upload_schedule_file(request: dict):
         logger.error(f"Error processing file: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to process file: {str(e)}")
 
-def parse_dataframe_to_schedule(df):
-    """Parse pandas DataFrame to schedule format"""
+def parse_dataframe_to_schedule(df, year_month=None):
+    """Parse pandas DataFrame to schedule format
+    
+    Supports two formats:
+    1. Full date format: date (YYYY-MM-DD), start (HH:MM), end (HH:MM)
+    2. Day number format: day (1-31), start (HH:MM), end (HH:MM)
+    
+    Args:
+        df: pandas DataFrame
+        year_month: Optional tuple (year, month) for day number format. 
+                   If None, uses current year and month.
+    """
+    from datetime import datetime
     work_days = []
     
-    # Try to find columns by common names
-    date_col = None
+    # Find columns
+    day_col = None
     start_col = None
     end_col = None
     
     for col in df.columns:
-        col_lower = str(col).lower()
-        if 'date' in col_lower or 'data' in col_lower or 'diena' in col_lower:
-            date_col = col
+        col_lower = str(col).lower().strip()
+        if 'day' in col_lower or 'diena' in col_lower:
+            day_col = col
+        elif 'date' in col_lower or 'data' in col_lower:
+            day_col = col
         elif 'start' in col_lower or 'pradž' in col_lower or 'prad' in col_lower:
             start_col = col
         elif 'end' in col_lower or 'pabaig' in col_lower or 'pab' in col_lower:
             end_col = col
     
-    # If not found, try first 3 columns
-    if not date_col and len(df.columns) >= 1:
-        date_col = df.columns[0]
+    # If not found, use first 3 columns
+    if not day_col and len(df.columns) >= 1:
+        day_col = df.columns[0]
     if not start_col and len(df.columns) >= 2:
         start_col = df.columns[1]
     if not end_col and len(df.columns) >= 3:
         end_col = df.columns[2]
     
-    if not (date_col and start_col and end_col):
-        raise ValueError("Could not identify date, start, and end columns")
+    if not (day_col and start_col and end_col):
+        raise ValueError("Could not identify day/date, start, and end columns")
+    
+    # Determine year and month
+    if not year_month:
+        now = datetime.now()
+        year, month = now.year, now.month
+    else:
+        year, month = year_month
     
     for _, row in df.iterrows():
         try:
-            date_val = str(row[date_col]).strip()
+            day_val = str(row[day_col]).strip()
             start_val = str(row[start_col]).strip()
             end_val = str(row[end_col]).strip()
             
-            # Skip empty or invalid rows
-            if date_val in ['', 'nan', 'NaN', 'None'] or start_val in ['', 'nan', 'NaN', 'None']:
+            # Skip empty rows
+            if day_val in ['', 'nan', 'NaN', 'None']:
                 continue
             
-            # Format date to YYYY-MM-DD if needed
-            if '-' not in date_val and '/' not in date_val:
-                continue  # Skip invalid dates
+            # Skip rows with P, M, A, BN markers (non-work days)
+            if end_val.upper() in ['P', 'M', 'A', 'BN'] or start_val.upper() in ['P', 'M', 'A', 'BN']:
+                logger.info(f"Skipping non-work day: {day_val}")
+                continue
+            
+            # Skip rows with empty start time
+            if start_val in ['', 'nan', 'NaN', 'None']:
+                logger.info(f"Skipping day with no start time: {day_val}")
+                continue
+            
+            # Check if day_val is a full date or just day number
+            if '-' in day_val or '/' in day_val:
+                # Full date format
+                date_str = day_val
+            else:
+                # Day number format - convert to full date
+                try:
+                    day_num = int(float(day_val))  # float first to handle "1.0"
+                    if 1 <= day_num <= 31:
+                        date_str = f"{year:04d}-{month:02d}-{day_num:02d}"
+                    else:
+                        logger.warning(f"Invalid day number: {day_val}")
+                        continue
+                except ValueError:
+                    logger.warning(f"Could not parse day: {day_val}")
+                    continue
             
             work_days.append({
-                'date': date_val,
+                'date': date_str,
                 'start': start_val,
                 'end': end_val
             })
