@@ -43,6 +43,7 @@ export default function SettingsScreen() {
       setOvertimeThreshold(String(data.overtime_threshold_minutes || 5));
       setEndOfDayReminder(String(data.end_of_day_reminder_minutes || 15));
       setAutoSendEmail(data.auto_send_email_on_geofence || false);
+      setTimezoneOffset(String(data.timezone_offset || 2));
       setHasWorkLocation(!!data.work_location);
       setWorkLocation(data.work_location);
     } catch (error) {
