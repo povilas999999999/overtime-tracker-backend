@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: overtime-tracker-backend
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: MONGO_URL
+        sync: false
+      - key: EMERGENT_LLM_KEY
+        sync: false
+      - key: SMTP_SERVER
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SENDER_EMAIL
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
