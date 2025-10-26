@@ -334,6 +334,61 @@ export default function ScheduleScreen() {
           </View>
         </Modal>
 
+        {/* Year/Month Selection Modal */}
+        <Modal
+          visible={showYearMonthModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowYearMonthModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Pasirinkite mėnesį ir metus</Text>
+              <Text style={styles.modalSubtitle}>
+                Jūsų CSV turi tik dienos numerius (1-31). Pasirinkite kuriam mėnesiui priklauso šis grafikas.
+              </Text>
+              
+              <View style={styles.yearMonthContainer}>
+                <View style={styles.yearMonthField}>
+                  <Text style={styles.label}>Metai:</Text>
+                  <TextInput
+                    style={styles.yearMonthInput}
+                    value={selectedYear}
+                    onChangeText={setSelectedYear}
+                    keyboardType="numeric"
+                    placeholder="2025"
+                  />
+                </View>
+                
+                <View style={styles.yearMonthField}>
+                  <Text style={styles.label}>Mėnuo (1-12):</Text>
+                  <TextInput
+                    style={styles.yearMonthInput}
+                    value={selectedMonth}
+                    onChangeText={setSelectedMonth}
+                    keyboardType="numeric"
+                    placeholder="1"
+                  />
+                </View>
+              </View>
+
+              <TouchableOpacity 
+                style={styles.confirmButton} 
+                onPress={confirmYearMonth}
+              >
+                <Text style={styles.confirmButtonText}>Patvirtinti</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.cancelButton} 
+                onPress={() => setShowYearMonthModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Atšaukti</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
         {/* Manual Entry Modal */}
         <Modal
           visible={showManualModal}
