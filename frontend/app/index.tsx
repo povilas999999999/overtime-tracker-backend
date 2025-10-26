@@ -494,9 +494,18 @@ export default function Index() {
   };
 
   const takePhoto = async () => {
+    // If camera permission not granted, request it first
     if (!cameraPermission) {
-      Alert.alert('Klaida', 'Reikalingas leidimas naudoti kamerą.');
-      return;
+      const { status } = await Camera.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Leidimas būtinas',
+          'Programai reikalingas leidimas naudoti kamerą.\n\nEikite į iPhone Settings ir suteikite leidimą.',
+          [{ text: 'Gerai' }]
+        );
+        return;
+      }
+      setCameraPermission(true);
     }
 
     router.push('/camera');
