@@ -201,10 +201,19 @@ async def delete_schedule(schedule_id: str):
 
 @api_router.post("/schedule/upload-file")
 async def upload_schedule_file(request: dict):
-    """Upload Excel/CSV/TXT file with work schedule"""
+    """Upload Excel/CSV/TXT file with work schedule
+    
+    Request body:
+        file_content: base64 encoded file
+        file_name: filename (e.g., schedule.csv)
+        year: (optional) year for day-number format (default: current year)
+        month: (optional) month for day-number format (default: current month)
+    """
     try:
         file_content = request.get('file_content')  # base64 encoded
         file_name = request.get('file_name', 'schedule.csv')
+        year = request.get('year')  # optional
+        month = request.get('month')  # optional
         
         if not file_content:
             raise HTTPException(status_code=400, detail="No file content provided")
@@ -214,6 +223,11 @@ async def upload_schedule_file(request: dict):
         
         # Determine file type
         file_ext = file_name.lower().split('.')[-1]
+        
+        # Prepare year_month tuple
+        year_month = None
+        if year and month:
+            year_month = (int(year), int(month))
         
         work_days = []
         
@@ -226,7 +240,7 @@ async def upload_schedule_file(request: dict):
             
             try:
                 df = pd.read_excel(tmp_path)
-                work_days = parse_dataframe_to_schedule(df)
+                work_days = parse_dataframe_to_schedule(df, year_month)
             finally:
                 os.unlink(tmp_path)
                 
@@ -235,7 +249,7 @@ async def upload_schedule_file(request: dict):
             import pandas as pd
             import io
             df = pd.read_csv(io.BytesIO(file_data))
-            work_days = parse_dataframe_to_schedule(df)
+            work_days = parse_dataframe_to_schedule(df, year_month)
             
         elif file_ext == 'txt':
             # TXT file - expect format: date,start,end per line
