@@ -475,143 +475,72 @@ async def start_work_session(request: WorkSessionStart):
                 scheduled_times = {"start": day['start'], "end": day['end']}
                 break
     
-    # FIXED: Use scheduled start time if available, otherwise current time
-    start_time = datetime.utcnow()
-    
-    # If we have scheduled times, use the scheduled start time for the session
-    scheduled_start = scheduled_times['start'] if scheduled_times else None
-    scheduled_end = scheduled_times['end'] if scheduled_times else None
+    # Use timestamp from frontend (already in local timezone)
+    start_time = datetime.fromisoformat(request.start_timestamp.replace('Z', '+00:00'))
     
     session = WorkSession(
         date=request.date,
         start_time=start_time,
-        scheduled_start=scheduled_start,
-        scheduled_end=scheduled_end
+        scheduled_start=scheduled_times['start'] if scheduled_times else None,
+        scheduled_end=scheduled_times['end'] if scheduled_times else None
     )
     
     await db.sessions.insert_one(session.dict())
-    
-    print(f"✅ Started session with schedule: {scheduled_start} - {scheduled_end}")
     return {"success": True, "session": session.dict()}
-    
+
 @api_router.post("/session/end")
 async def end_work_session(request: WorkSessionEnd):
     """End a work session and calculate overtime"""
-    print(f"🔍 Looking for session with ID: {request.session_id}")
-    
     session = await db.sessions.find_one({"id": request.session_id})
     if not session:
-        today = datetime.utcnow().strftime("%Y-%m-%d")
-        active_session = await db.sessions.find_one({
-            "date": today, 
-            "end_time": None
-        }, sort=[("start_time", -1)])
-        
-        if active_session:
-            session = active_session
-        else:
-            raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="Session not found")
     
-    print(f"✅ Ending session: {session['id']}")
+    # FIXED: Use Lithuania timezone (UTC+2/UTC+3)
+    from datetime import timedelta, timezone
+    lithuania_tz = timezone(timedelta(hours=2))  # EET (UTC+2) - Winter
+    # TODO: Handle EEST (UTC+3) for summer - for now using +2
     
-    # Use UTC time
-    end_time = datetime.utcnow()
+    # Get current time in Lithuania timezone
+    end_time = datetime.now(lithuania_tz)
+    
+    start_time = session['start_time']
+    
+    # Ensure start_time has timezone info
+    if start_time.tzinfo is None:
+        # If start_time is naive, assume it's in Lithuania time
+        start_time = start_time.replace(tzinfo=lithuania_tz)
     
     overtime_minutes = 0
     if session.get('scheduled_end'):
-        # FIXED: Konvertuoti scheduled_end iš Lietuvos laiko į UTC
-        from datetime import datetime as dt, timedelta
+        # Calculate overtime based on actual end time vs scheduled end time
+        from datetime import datetime as dt
         
-        # Gauti nustatymus
-        settings = await db.settings.find_one()
-        timezone_offset = settings.get('timezone_offset', 2) if settings else 2
-        
-        # Scheduled_end yra Lietuvos laiku (pvz., "18:00")
-        scheduled_end_str = session['scheduled_end']  # "HH:MM" formatas
+        # Get scheduled end time
+        scheduled_end_str = session['scheduled_end']  # "HH:MM"
         scheduled_end_time = dt.strptime(scheduled_end_str, "%H:%M").time()
         
-        # Sukurti datetime objektą su Lietuvos laiko juosta
-        from datetime import timezone as tz
-        lithuania_tz = tz(timedelta(hours=timezone_offset))
+        # Combine with today's date in Lithuania timezone
+        scheduled_end_datetime = datetime.combine(end_time.date(), scheduled_end_time)
+        scheduled_end_datetime = scheduled_end_datetime.replace(tzinfo=lithuania_tz)
         
-        # Daryti prielaidą, kad scheduled_end yra šiandien Lietuvos laiku
-        scheduled_end_datetime_local = datetime.combine(end_time.date(), scheduled_end_time)
-        scheduled_end_datetime_local = scheduled_end_datetime_local.replace(tzinfo=lithuania_tz)
-        
-        # Konvertuoti į UTC
-        scheduled_end_datetime_utc = scheduled_end_datetime_local.astimezone(tz.utc)
-        
-        # Apskaičiuoti viršvalandžius
-        overtime_seconds = (end_time - scheduled_end_datetime_utc).total_seconds()
+        # Calculate overtime: how many minutes AFTER scheduled end time
+        overtime_seconds = (end_time - scheduled_end_datetime).total_seconds()
         overtime_minutes = max(0, int(overtime_seconds / 60))
         
-        print(f"⏰ Overtime calculation:")
-        print(f"   - End time (UTC): {end_time}")
-        print(f"   - Scheduled end (UTC): {scheduled_end_datetime_utc}")
-        print(f"   - Overtime minutes: {overtime_minutes}")
-        print(f"   - Timezone offset: {timezone_offset}h")
+        logger.info(f"Overtime calculation: end_time={end_time}, scheduled_end={scheduled_end_datetime}, overtime_minutes={overtime_minutes}")
     
     # Update session
     await db.sessions.update_one(
-        {"id": session['id']},
+        {"id": request.session_id},
         {"$set": {
             "end_time": end_time,
             "overtime_minutes": overtime_minutes
         }}
     )
     
-    # FIXED: Siųsti el. laišką net jei overtime_minutes = 0 (testavimui)
-    # Pakeiskite į: if overtime_minutes >= 0:  (testavimui)
-    if overtime_minutes > 0:
-        try:
-            print(f"📧 Sending email for overtime: {overtime_minutes} minutes")
-            
-            settings = await db.settings.find_one()
-            if not settings:
-                settings = AppSettings().dict()
-            
-            recipient = settings.get('recipient_email', 'povilas999999999@yahoo.com')
-            subject = settings.get('email_subject', 'Prašau apmokėti už viršvalandžius')
-            email_template = settings.get('email_body_template', AppSettings().email_body_template)
-            
-            overtime_hours = overtime_minutes / 60
-            
-            # Format the email body
-            body_text = email_template.format(
-                date=session['date'],
-                start_time=session.get('scheduled_start', 'N/A'),
-                end_time=end_time.strftime('%H:%M'),
-                overtime_hours=f"{overtime_hours:.2f}",
-                overtime_minutes=overtime_minutes,
-                photo_count=len(session.get('photos', []))
-            )
-            
-            body_html = f"""
-            <html>
-            <body>
-                <pre style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6;">
-{body_text}
-                </pre>
-            </body>
-            </html>
-            """
-            
-            # Send email
-            send_email_with_photos(recipient, subject, body_html, session.get('photos', []))
-            
-            await db.sessions.update_one(
-                {"id": session['id']},
-                {"$set": {"email_sent": True}}
-            )
-            
-            print(f"✅ Email sent successfully to {recipient}")
-            
-        except Exception as e:
-            logger.error(f"❌ Error sending email: {str(e)}")
-    
-    updated_session = await db.sessions.find_one({"id": session['id']})
+    updated_session = await db.sessions.find_one({"id": request.session_id})
     return {"success": True, "session": WorkSession(**updated_session).dict()}
-    
+
 @api_router.post("/session/photo")
 async def add_session_photo(request: PhotoUpload):
     """Add a photo to a work session"""
@@ -766,3 +695,4 @@ app.add_middleware(
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
