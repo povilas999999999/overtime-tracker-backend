@@ -475,8 +475,8 @@ async def start_work_session(request: WorkSessionStart):
                 scheduled_times = {"start": day['start'], "end": day['end']}
                 break
     
-    # Use timestamp from frontend (already in local timezone)
-    start_time = datetime.fromisoformat(request.start_timestamp.replace('Z', '+00:00'))
+    # FIXED: Naudokite UTC laiką
+    start_time = datetime.utcnow()
     
     session = WorkSession(
         date=request.date,
@@ -486,29 +486,44 @@ async def start_work_session(request: WorkSessionStart):
     )
     
     await db.sessions.insert_one(session.dict())
+    
+    print(f"✅ Started new session: {session.id} at {start_time}")
     return {"success": True, "session": session.dict()}
 
 @api_router.post("/session/end")
 async def end_work_session(request: WorkSessionEnd):
     """End a work session and calculate overtime"""
+    print(f"🔍 Looking for session with ID: {request.session_id}")
+    
+    # Debug: išvardykite visas sesijas
+    all_sessions = await db.sessions.find().to_list(100)
+    print(f"📋 Total sessions in DB: {len(all_sessions)}")
+    for s in all_sessions:
+        print(f"   - {s['id']} | {s['date']} | {s.get('end_time', 'ACTIVE')}")
+    
     session = await db.sessions.find_one({"id": request.session_id})
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        # Bandykime rasti pagal datą ir end_time=None
+        today = datetime.now().strftime("%Y-%m-%d")
+        print(f"🔍 Looking for active session for today: {today}")
+        
+        active_session = await db.sessions.find_one({
+            "date": today, 
+            "end_time": None
+        }, sort=[("start_time", -1)])
+        
+        if active_session:
+            print(f"✅ Found active session by date: {active_session['id']}")
+            session = active_session
+        else:
+            raise HTTPException(status_code=404, detail=f"Session not found. Tried ID: {request.session_id} and active session for today")
     
-    # FIXED: Use Lithuania timezone (UTC+2/UTC+3)
-    from datetime import timedelta, timezone
-    lithuania_tz = timezone(timedelta(hours=2))  # EET (UTC+2) - Winter
-    # TODO: Handle EEST (UTC+3) for summer - for now using +2
+    print(f"✅ Ending session: {session['id']}")
     
-    # Get current time in Lithuania timezone
-    end_time = datetime.now(lithuania_tz)
+    # FIXED: Naudokite UTC laiką viskam
+    end_time = datetime.utcnow()
     
     start_time = session['start_time']
-    
-    # Ensure start_time has timezone info
-    if start_time.tzinfo is None:
-        # If start_time is naive, assume it's in Lithuania time
-        start_time = start_time.replace(tzinfo=lithuania_tz)
     
     overtime_minutes = 0
     if session.get('scheduled_end'):
@@ -519,9 +534,8 @@ async def end_work_session(request: WorkSessionEnd):
         scheduled_end_str = session['scheduled_end']  # "HH:MM"
         scheduled_end_time = dt.strptime(scheduled_end_str, "%H:%M").time()
         
-        # Combine with today's date in Lithuania timezone
+        # Combine with today's date in UTC
         scheduled_end_datetime = datetime.combine(end_time.date(), scheduled_end_time)
-        scheduled_end_datetime = scheduled_end_datetime.replace(tzinfo=lithuania_tz)
         
         # Calculate overtime: how many minutes AFTER scheduled end time
         overtime_seconds = (end_time - scheduled_end_datetime).total_seconds()
@@ -531,14 +545,14 @@ async def end_work_session(request: WorkSessionEnd):
     
     # Update session
     await db.sessions.update_one(
-        {"id": request.session_id},
+        {"id": session['id']},
         {"$set": {
             "end_time": end_time,
             "overtime_minutes": overtime_minutes
         }}
     )
     
-    updated_session = await db.sessions.find_one({"id": request.session_id})
+    updated_session = await db.sessions.find_one({"id": session['id']})
     return {"success": True, "session": WorkSession(**updated_session).dict()}
 
 @api_router.post("/session/photo")
