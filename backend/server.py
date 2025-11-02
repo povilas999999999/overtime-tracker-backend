@@ -475,36 +475,33 @@ async def start_work_session(request: WorkSessionStart):
                 scheduled_times = {"start": day['start'], "end": day['end']}
                 break
     
-    # FIXED: Naudokite UTC laiką
+    # FIXED: Use scheduled start time if available, otherwise current time
     start_time = datetime.utcnow()
+    
+    # If we have scheduled times, use the scheduled start time for the session
+    scheduled_start = scheduled_times['start'] if scheduled_times else None
+    scheduled_end = scheduled_times['end'] if scheduled_times else None
     
     session = WorkSession(
         date=request.date,
         start_time=start_time,
-        scheduled_start=scheduled_times['start'] if scheduled_times else None,
-        scheduled_end=scheduled_times['end'] if scheduled_times else None
+        scheduled_start=scheduled_start,
+        scheduled_end=scheduled_end
     )
     
     await db.sessions.insert_one(session.dict())
     
-    print(f"✅ Started new session: {session.id} at {start_time}")
+    print(f"✅ Started session with schedule: {scheduled_start} - {scheduled_end}")
     return {"success": True, "session": session.dict()}
-
 @api_router.post("/session/end")
 async def end_work_session(request: WorkSessionEnd):
     """End a work session and calculate overtime"""
     print(f"🔍 Looking for session with ID: {request.session_id}")
     
-    # Debug: išvardykite visas sesijas
-    all_sessions = await db.sessions.find().to_list(100)
-    print(f"📋 Total sessions in DB: {len(all_sessions)}")
-    for s in all_sessions:
-        print(f"   - {s['id']} | {s['date']} | {s.get('end_time', 'ACTIVE')}")
-    
     session = await db.sessions.find_one({"id": request.session_id})
     if not session:
         # Bandykime rasti pagal datą ir end_time=None
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = datetime.utcnow().strftime("%Y-%m-%d")
         print(f"🔍 Looking for active session for today: {today}")
         
         active_session = await db.sessions.find_one({
@@ -520,7 +517,7 @@ async def end_work_session(request: WorkSessionEnd):
     
     print(f"✅ Ending session: {session['id']}")
     
-    # FIXED: Naudokite UTC laiką viskam
+    # Use UTC time
     end_time = datetime.utcnow()
     
     start_time = session['start_time']
@@ -552,9 +549,59 @@ async def end_work_session(request: WorkSessionEnd):
         }}
     )
     
+    # FIXED: Automatiškai siųsti el. laišką jei yra viršvalandžiai
+    if overtime_minutes > 0:
+        try:
+            print(f"📧 Sending email for overtime: {overtime_minutes} minutes")
+            
+            # Gauti nustatymus
+            settings = await db.settings.find_one()
+            if not settings:
+                settings = AppSettings().dict()
+            
+            recipient = settings.get('recipient_email', 'povilas999999999@yahoo.com')
+            subject = settings.get('email_subject', 'Prašau apmokėti už viršvalandžius')
+            email_template = settings.get('email_body_template', AppSettings().email_body_template)
+            
+            # Format the email body
+            overtime_hours = overtime_minutes / 60
+            
+            body_text = email_template.format(
+                date=session['date'],
+                start_time=session.get('scheduled_start', 'N/A'),
+                end_time=end_time.strftime('%H:%M'),
+                overtime_hours=f"{overtime_hours:.2f}",
+                overtime_minutes=overtime_minutes,
+                photo_count=len(session.get('photos', []))
+            )
+            
+            # Convert to HTML
+            body_html = f"""
+            <html>
+            <body>
+                <pre style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6;">
+    {body_text}
+                </pre>
+            </body>
+            </html>
+            """
+            
+            # Send email
+            send_email_with_photos(recipient, subject, body_html, session.get('photos', []))
+            
+            # Mark email as sent
+            await db.sessions.update_one(
+                {"id": session['id']},
+                {"$set": {"email_sent": True}}
+            )
+            
+            print(f"✅ Email sent successfully to {recipient}")
+            
+        except Exception as e:
+            logger.error(f"❌ Error sending email automatically: {str(e)}")
+    
     updated_session = await db.sessions.find_one({"id": session['id']})
     return {"success": True, "session": WorkSession(**updated_session).dict()}
-
 @api_router.post("/session/photo")
 async def add_session_photo(request: PhotoUpload):
     """Add a photo to a work session"""
