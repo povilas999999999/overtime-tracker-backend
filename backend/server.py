@@ -493,6 +493,7 @@ async def start_work_session(request: WorkSessionStart):
     
     print(f"✅ Started session with schedule: {scheduled_start} - {scheduled_end}")
     return {"success": True, "session": session.dict()}
+    
 @api_router.post("/session/end")
 async def end_work_session(request: WorkSessionEnd):
     """End a work session and calculate overtime"""
@@ -500,45 +501,55 @@ async def end_work_session(request: WorkSessionEnd):
     
     session = await db.sessions.find_one({"id": request.session_id})
     if not session:
-        # Bandykime rasti pagal datą ir end_time=None
         today = datetime.utcnow().strftime("%Y-%m-%d")
-        print(f"🔍 Looking for active session for today: {today}")
-        
         active_session = await db.sessions.find_one({
             "date": today, 
             "end_time": None
         }, sort=[("start_time", -1)])
         
         if active_session:
-            print(f"✅ Found active session by date: {active_session['id']}")
             session = active_session
         else:
-            raise HTTPException(status_code=404, detail=f"Session not found. Tried ID: {request.session_id} and active session for today")
+            raise HTTPException(status_code=404, detail="Session not found")
     
     print(f"✅ Ending session: {session['id']}")
     
     # Use UTC time
     end_time = datetime.utcnow()
     
-    start_time = session['start_time']
-    
     overtime_minutes = 0
     if session.get('scheduled_end'):
-        # Calculate overtime based on actual end time vs scheduled end time
-        from datetime import datetime as dt
+        # FIXED: Konvertuoti scheduled_end iš Lietuvos laiko į UTC
+        from datetime import datetime as dt, timedelta
         
-        # Get scheduled end time
-        scheduled_end_str = session['scheduled_end']  # "HH:MM"
+        # Gauti nustatymus
+        settings = await db.settings.find_one()
+        timezone_offset = settings.get('timezone_offset', 2) if settings else 2
+        
+        # Scheduled_end yra Lietuvos laiku (pvz., "18:00")
+        scheduled_end_str = session['scheduled_end']  # "HH:MM" formatas
         scheduled_end_time = dt.strptime(scheduled_end_str, "%H:%M").time()
         
-        # Combine with today's date in UTC
-        scheduled_end_datetime = datetime.combine(end_time.date(), scheduled_end_time)
+        # Sukurti datetime objektą su Lietuvos laiko juosta
+        from datetime import timezone as tz
+        lithuania_tz = tz(timedelta(hours=timezone_offset))
         
-        # Calculate overtime: how many minutes AFTER scheduled end time
-        overtime_seconds = (end_time - scheduled_end_datetime).total_seconds()
+        # Daryti prielaidą, kad scheduled_end yra šiandien Lietuvos laiku
+        scheduled_end_datetime_local = datetime.combine(end_time.date(), scheduled_end_time)
+        scheduled_end_datetime_local = scheduled_end_datetime_local.replace(tzinfo=lithuania_tz)
+        
+        # Konvertuoti į UTC
+        scheduled_end_datetime_utc = scheduled_end_datetime_local.astimezone(tz.utc)
+        
+        # Apskaičiuoti viršvalandžius
+        overtime_seconds = (end_time - scheduled_end_datetime_utc).total_seconds()
         overtime_minutes = max(0, int(overtime_seconds / 60))
         
-        logger.info(f"Overtime calculation: end_time={end_time}, scheduled_end={scheduled_end_datetime}, overtime_minutes={overtime_minutes}")
+        print(f"⏰ Overtime calculation:")
+        print(f"   - End time (UTC): {end_time}")
+        print(f"   - Scheduled end (UTC): {scheduled_end_datetime_utc}")
+        print(f"   - Overtime minutes: {overtime_minutes}")
+        print(f"   - Timezone offset: {timezone_offset}h")
     
     # Update session
     await db.sessions.update_one(
@@ -549,12 +560,12 @@ async def end_work_session(request: WorkSessionEnd):
         }}
     )
     
-    # FIXED: Automatiškai siųsti el. laišką jei yra viršvalandžiai
+    # FIXED: Siųsti el. laišką net jei overtime_minutes = 0 (testavimui)
+    # Pakeiskite į: if overtime_minutes >= 0:  (testavimui)
     if overtime_minutes > 0:
         try:
             print(f"📧 Sending email for overtime: {overtime_minutes} minutes")
             
-            # Gauti nustatymus
             settings = await db.settings.find_one()
             if not settings:
                 settings = AppSettings().dict()
@@ -563,9 +574,9 @@ async def end_work_session(request: WorkSessionEnd):
             subject = settings.get('email_subject', 'Prašau apmokėti už viršvalandžius')
             email_template = settings.get('email_body_template', AppSettings().email_body_template)
             
-            # Format the email body
             overtime_hours = overtime_minutes / 60
             
+            # Format the email body
             body_text = email_template.format(
                 date=session['date'],
                 start_time=session.get('scheduled_start', 'N/A'),
@@ -575,12 +586,11 @@ async def end_work_session(request: WorkSessionEnd):
                 photo_count=len(session.get('photos', []))
             )
             
-            # Convert to HTML
             body_html = f"""
             <html>
             <body>
                 <pre style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6;">
-    {body_text}
+{body_text}
                 </pre>
             </body>
             </html>
@@ -589,7 +599,6 @@ async def end_work_session(request: WorkSessionEnd):
             # Send email
             send_email_with_photos(recipient, subject, body_html, session.get('photos', []))
             
-            # Mark email as sent
             await db.sessions.update_one(
                 {"id": session['id']},
                 {"$set": {"email_sent": True}}
@@ -598,10 +607,11 @@ async def end_work_session(request: WorkSessionEnd):
             print(f"✅ Email sent successfully to {recipient}")
             
         except Exception as e:
-            logger.error(f"❌ Error sending email automatically: {str(e)}")
+            logger.error(f"❌ Error sending email: {str(e)}")
     
     updated_session = await db.sessions.find_one({"id": session['id']})
     return {"success": True, "session": WorkSession(**updated_session).dict()}
+    
 @api_router.post("/session/photo")
 async def add_session_photo(request: PhotoUpload):
     """Add a photo to a work session"""
