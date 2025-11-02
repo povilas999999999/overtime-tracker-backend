@@ -136,11 +136,23 @@ class EmailSendRequest(BaseModel):
 # PDF/Image AI parsing removed to avoid emergentintegrations dependency
 # Use manual schedule entry endpoint instead: /api/schedule/manual
 
+# Helper Functions
+# PDF/Image AI parsing removed to avoid emergentintegrations dependency
+# Use manual schedule entry endpoint instead: /api/schedule/manual
+
 def send_email_with_photos(recipient: str, subject: str, body: str, photos: List[str]):
     """Send email with photos attached using Gmail SMTP"""
     try:
         sender_email = os.getenv('SENDER_EMAIL', 'pauliusbosas.nvc@gmail.com')
         sender_password = os.getenv('SENDER_PASSWORD', 'afsgfbwuirqgyafg')
+        
+        print(f"📧 Attempting to send email from {sender_email} to {recipient}")
+        
+        # Patikrinti ar yra SMTP duomenys
+        if not sender_email or not sender_password:
+            error_msg = "Sender email or password not configured"
+            print(f"❌ {error_msg}")
+            return False
         
         msg = MIMEMultipart()
         msg['From'] = sender_email
@@ -160,20 +172,48 @@ def send_email_with_photos(recipient: str, subject: str, body: str, photos: List
                 encoders.encode_base64(part)
                 part.add_header('Content-Disposition', f'attachment; filename=darbo_nuotrauka_{idx+1}.jpg')
                 msg.attach(part)
+                print(f"✅ Attached photo {idx+1}")
             except Exception as e:
-                logger.error(f"Error attaching photo {idx}: {str(e)}")
+                print(f"⚠️ Error attaching photo {idx}: {str(e)}")
         
-        # Connect to Gmail SMTP with SSL
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-            server.login(sender_email, sender_password)
-            server.send_message(msg)
+        # Bandyti skirtingus SMTP variantus
+        email_sent = False
         
-        logger.info(f"Email sent successfully to {recipient}")
-        return True
+        # Variantas 1: SSL
+        try:
+            print("🔐 Trying SMTP SSL (port 465)...")
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+                server.login(sender_email, sender_password)
+                server.send_message(msg)
+            email_sent = True
+            print("✅ Email sent successfully via SSL")
+        except Exception as e:
+            print(f"❌ SSL failed: {str(e)}")
+            
+            # Variantas 2: TLS
+            try:
+                print("🔐 Trying SMTP TLS (port 587)...")
+                server = smtplib.SMTP('smtp.gmail.com', 587)
+                server.starttls()
+                server.login(sender_email, sender_password)
+                server.send_message(msg)
+                server.quit()
+                email_sent = True
+                print("✅ Email sent successfully via TLS")
+            except Exception as e2:
+                print(f"❌ TLS failed: {str(e2)}")
+        
+        if email_sent:
+            print(f"🎉 Email successfully sent to {recipient}")
+            return True
+        else:
+            print("💥 All email sending methods failed")
+            return False
         
     except Exception as e:
-        logger.error(f"Error sending email: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
+        error_msg = f"Critical error sending email: {str(e)}"
+        print(f"💥 {error_msg}")
+        return False
 
 # Routes
 @api_router.get("/")
@@ -409,6 +449,56 @@ def parse_dataframe_to_schedule(df, year_month=None):
     
     logger.info(f"Successfully parsed {len(work_days)} work days")
     return work_days
+@api_router.post("/email/test")
+async def test_email():
+    """Test email functionality"""
+    try:
+        settings = await db.settings.find_one()
+        if not settings:
+            settings = AppSettings().dict()
+        
+        recipient = settings.get('recipient_email', 'povilas999999999@yahoo.com')
+        
+        test_subject = "Testinis el. laiškas iš Overtime Tracker"
+        test_body = """
+        Sveiki,
+        
+        Tai yra testinis el. laiškas iš Viršvalandžių Stebėjimo sistemos.
+        
+        Jei jūs gaunate šį laišką, tai el. pašto siuntimas veikia teisingai.
+        
+        Pagarbiai,
+        Overtime Tracker Sistema
+        """
+        
+        test_body_html = f"""
+        <html>
+        <body>
+            <pre style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6;">
+{test_body}
+            </pre>
+        </body>
+        </html>
+        """
+        
+        print(f"🧪 Testing email to: {recipient}")
+        email_sent = send_email_with_photos(recipient, test_subject, test_body_html, [])
+        
+        return {
+            "success": True,
+            "message": "Email test completed",
+            "email_sent": email_sent,
+            "recipient": recipient
+        }
+        
+    except Exception as e:
+        print(f"💥 Test email error: {str(e)}")
+        return {
+            "success": True,
+            "message": f"Email test completed with error: {str(e)}",
+            "email_sent": False
+        }
+
 
 @api_router.post("/schedule/manual")
 async def upload_manual_schedule(request: ManualScheduleRequest):
