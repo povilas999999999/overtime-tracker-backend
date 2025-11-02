@@ -133,13 +133,6 @@ class EmailSendRequest(BaseModel):
     session_id: str
 
 # Helper Functions
-# PDF/Image AI parsing removed to avoid emergentintegrations dependency
-# Use manual schedule entry endpoint instead: /api/schedule/manual
-
-# Helper Functions
-# PDF/Image AI parsing removed to avoid emergentintegrations dependency
-# Use manual schedule entry endpoint instead: /api/schedule/manual
-
 def send_email_with_photos(recipient: str, subject: str, body: str, photos: List[str]):
     """Send email with photos attached using Gmail SMTP"""
     try:
@@ -152,6 +145,11 @@ def send_email_with_photos(recipient: str, subject: str, body: str, photos: List
         if not sender_email or not sender_password:
             error_msg = "Sender email or password not configured"
             print(f"❌ {error_msg}")
+            return False
+        
+        # Greita validacija prieš bandant SMTP
+        if not recipient or '@' not in recipient:
+            print(f"❌ Invalid recipient: {recipient}")
             return False
         
         msg = MIMEMultipart()
@@ -176,13 +174,14 @@ def send_email_with_photos(recipient: str, subject: str, body: str, photos: List
             except Exception as e:
                 print(f"⚠️ Error attaching photo {idx}: {str(e)}")
         
-        # Bandyti skirtingus SMTP variantus
+        # Pridėti timeout ir geresnį klaidų apdorojimą
         email_sent = False
+        timeout_seconds = 30  # 30 sekundžių timeout
         
         # Variantas 1: SSL
         try:
             print("🔐 Trying SMTP SSL (port 465)...")
-            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=timeout_seconds) as server:
                 server.login(sender_email, sender_password)
                 server.send_message(msg)
             email_sent = True
@@ -193,7 +192,7 @@ def send_email_with_photos(recipient: str, subject: str, body: str, photos: List
             # Variantas 2: TLS
             try:
                 print("🔐 Trying SMTP TLS (port 587)...")
-                server = smtplib.SMTP('smtp.gmail.com', 587)
+                server = smtplib.SMTP('smtp.gmail.com', 587, timeout=timeout_seconds)
                 server.starttls()
                 server.login(sender_email, sender_password)
                 server.send_message(msg)
@@ -215,130 +214,8 @@ def send_email_with_photos(recipient: str, subject: str, body: str, photos: List
         print(f"💥 {error_msg}")
         return False
 
-# Routes
-@api_router.get("/")
-async def root():
-    return {"message": "Overtime Tracking API"}
-
-# PDF upload endpoint removed - use /api/schedule/manual instead
-
-@api_router.get("/schedule/current")
-async def get_current_schedule():
-    """Get the most recent schedule"""
-    schedule = await db.schedules.find_one(sort=[("uploaded_at", -1)])
-    if not schedule:
-        return {"schedule": None}
-    return {"schedule": WorkSchedule(**schedule).dict()}
-
-@api_router.delete("/schedule/{schedule_id}")
-async def delete_schedule(schedule_id: str):
-    """Delete a schedule"""
-    result = await db.schedules.delete_one({"id": schedule_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Schedule not found")
-    return {"success": True, "message": "Schedule deleted"}
-
-@api_router.post("/schedule/upload-file")
-async def upload_schedule_file(request: dict):
-    """Upload Excel/CSV/TXT file with work schedule
-    
-    Request body:
-        file_content: base64 encoded file
-        file_name: filename (e.g., schedule.csv)
-        year: (optional) year for day-number format (default: current year)
-        month: (optional) month for day-number format (default: current month)
-    """
-    try:
-        file_content = request.get('file_content')  # base64 encoded
-        file_name = request.get('file_name', 'schedule.csv')
-        year = request.get('year')  # optional
-        month = request.get('month')  # optional
-        
-        if not file_content:
-            raise HTTPException(status_code=400, detail="No file content provided")
-        
-        # Decode base64
-        file_data = base64.b64decode(file_content.split(',')[1] if ',' in file_content else file_content)
-        
-        # Determine file type
-        file_ext = file_name.lower().split('.')[-1]
-        
-        # Prepare year_month tuple
-        year_month = None
-        if year and month:
-            year_month = (int(year), int(month))
-        
-        work_days = []
-        
-        if file_ext in ['xlsx', 'xls']:
-            # Excel file
-            import pandas as pd
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{file_ext}') as tmp:
-                tmp.write(file_data)
-                tmp_path = tmp.name
-            
-            try:
-                df = pd.read_excel(tmp_path)
-                work_days = parse_dataframe_to_schedule(df, year_month)
-            finally:
-                os.unlink(tmp_path)
-                
-        elif file_ext == 'csv':
-            # CSV file
-            import pandas as pd
-            import io
-            df = pd.read_csv(io.BytesIO(file_data))
-            work_days = parse_dataframe_to_schedule(df, year_month)
-            
-        elif file_ext == 'txt':
-            # TXT file - expect format: date,start,end per line
-            text_content = file_data.decode('utf-8')
-            lines = text_content.strip().split('\n')
-            
-            for line in lines:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    continue
-                    
-                parts = [p.strip() for p in line.split(',')]
-                if len(parts) >= 3:
-                    work_days.append({
-                        'date': parts[0],
-                        'start': parts[1],
-                        'end': parts[2]
-                    })
-        else:
-            raise HTTPException(status_code=400, detail=f"Unsupported file type: {file_ext}")
-        
-        if not work_days:
-            raise HTTPException(status_code=400, detail="No valid schedule data found in file")
-        
-        # Save to database
-        schedule = WorkSchedule(
-            work_days=work_days,
-            pdf_filename=file_name
-        )
-        await db.schedules.insert_one(schedule.dict())
-        
-        return {"success": True, "schedule": schedule.dict(), "parsed_days": len(work_days)}
-        
-    except Exception as e:
-        logger.error(f"Error processing file: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to process file: {str(e)}")
-
 def parse_dataframe_to_schedule(df, year_month=None):
-    """Parse pandas DataFrame to schedule format
-    
-    Supports formats:
-    1. Full date format: date (YYYY-MM-DD), start (HH:MM), end (HH:MM)
-    2. Day number format: day (1-31), start (HH:MM), end (HH:MM)
-    3. Multi-month format: Multiple rows with day numbers spanning multiple months
-    
-    Args:
-        df: pandas DataFrame
-        year_month: Optional tuple (year, month) for day number format. 
-                   If None, uses current year and month.
-    """
+    """Parse pandas DataFrame to schedule format"""
     from datetime import datetime
     from calendar import monthrange
     work_days = []
@@ -409,25 +286,24 @@ def parse_dataframe_to_schedule(df, year_month=None):
             else:
                 # Day number format - convert to full date
                 try:
-                    day_num = int(float(day_val))  # float first to handle "1.0"
+                    day_num = int(float(day_val))
                     
                     if not (1 <= day_num <= 31):
                         logger.warning(f"Invalid day number: {day_val}")
                         continue
                     
-                    # Multi-month detection: if day number goes backwards, move to next month
+                    # Multi-month detection
                     if last_day_num > 0 and day_num < last_day_num:
-                        # Day number decreased - likely new month
                         working_month += 1
                         if working_month > 12:
                             working_month = 1
                             working_year += 1
-                        logger.info(f"🔄 DETECTED NEW MONTH: {working_year}-{working_month:02d} (day went from {last_day_num} to {day_num})")
+                        logger.info(f"🔄 DETECTED NEW MONTH: {working_year}-{working_month:02d}")
                     
                     # Check if day_num is valid for this month
                     max_day = monthrange(working_year, working_month)[1]
                     if day_num > max_day:
-                        logger.warning(f"Day {day_num} invalid for {working_year}-{working_month:02d} (max: {max_day})")
+                        logger.warning(f"Day {day_num} invalid for {working_year}-{working_month:02d}")
                         continue
                     
                     date_str = f"{working_year:04d}-{working_month:02d}-{day_num:02d}"
@@ -449,6 +325,305 @@ def parse_dataframe_to_schedule(df, year_month=None):
     
     logger.info(f"Successfully parsed {len(work_days)} work days")
     return work_days
+
+# Routes
+@api_router.get("/")
+async def root():
+    return {"message": "Overtime Tracking API"}
+
+@api_router.get("/schedule/current")
+async def get_current_schedule():
+    """Get the most recent schedule"""
+    schedule = await db.schedules.find_one(sort=[("uploaded_at", -1)])
+    if not schedule:
+        return {"schedule": None}
+    return {"schedule": WorkSchedule(**schedule).dict()}
+
+@api_router.delete("/schedule/{schedule_id}")
+async def delete_schedule(schedule_id: str):
+    """Delete a schedule"""
+    result = await db.schedules.delete_one({"id": schedule_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    return {"success": True, "message": "Schedule deleted"}
+
+@api_router.post("/schedule/upload-file")
+async def upload_schedule_file(request: dict):
+    """Upload Excel/CSV/TXT file with work schedule"""
+    try:
+        file_content = request.get('file_content')
+        file_name = request.get('file_name', 'schedule.csv')
+        year = request.get('year')
+        month = request.get('month')
+        
+        if not file_content:
+            raise HTTPException(status_code=400, detail="No file content provided")
+        
+        # Decode base64
+        file_data = base64.b64decode(file_content.split(',')[1] if ',' in file_content else file_content)
+        
+        # Determine file type
+        file_ext = file_name.lower().split('.')[-1]
+        
+        # Prepare year_month tuple
+        year_month = None
+        if year and month:
+            year_month = (int(year), int(month))
+        
+        work_days = []
+        
+        if file_ext in ['xlsx', 'xls']:
+            import pandas as pd
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{file_ext}') as tmp:
+                tmp.write(file_data)
+                tmp_path = tmp.name
+            
+            try:
+                df = pd.read_excel(tmp_path)
+                work_days = parse_dataframe_to_schedule(df, year_month)
+            finally:
+                os.unlink(tmp_path)
+                
+        elif file_ext == 'csv':
+            import pandas as pd
+            import io
+            df = pd.read_csv(io.BytesIO(file_data))
+            work_days = parse_dataframe_to_schedule(df, year_month)
+            
+        elif file_ext == 'txt':
+            text_content = file_data.decode('utf-8')
+            lines = text_content.strip().split('\n')
+            
+            for line in lines:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                    
+                parts = [p.strip() for p in line.split(',')]
+                if len(parts) >= 3:
+                    work_days.append({
+                        'date': parts[0],
+                        'start': parts[1],
+                        'end': parts[2]
+                    })
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported file type: {file_ext}")
+        
+        if not work_days:
+            raise HTTPException(status_code=400, detail="No valid schedule data found in file")
+        
+        # Save to database
+        schedule = WorkSchedule(
+            work_days=work_days,
+            pdf_filename=file_name
+        )
+        await db.schedules.insert_one(schedule.dict())
+        
+        return {"success": True, "schedule": schedule.dict(), "parsed_days": len(work_days)}
+        
+    except Exception as e:
+        logger.error(f"Error processing file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to process file: {str(e)}")
+
+@api_router.post("/schedule/manual")
+async def upload_manual_schedule(request: ManualScheduleRequest):
+    """Upload manually entered schedule"""
+    try:
+        if not request.work_days or len(request.work_days) == 0:
+            raise HTTPException(status_code=400, detail="No work days provided")
+        
+        schedule = WorkSchedule(
+            work_days=request.work_days,
+            pdf_filename="manual_entry"
+        )
+        await db.schedules.insert_one(schedule.dict())
+        
+        return {"success": True, "schedule": schedule.dict()}
+        
+    except Exception as e:
+        logger.error(f"Error saving manual schedule: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to save schedule: {str(e)}")
+
+@api_router.post("/settings")
+async def update_settings(settings: SettingsUpdate):
+    """Update app settings"""
+    existing = await db.settings.find_one()
+    
+    if existing:
+        update_data = {k: v for k, v in settings.dict().items() if v is not None}
+        update_data['updated_at'] = datetime.utcnow()
+        await db.settings.update_one({"id": existing["id"]}, {"$set": update_data})
+        updated = await db.settings.find_one({"id": existing["id"]})
+        return {"success": True, "settings": AppSettings(**updated).dict()}
+    else:
+        new_settings = AppSettings(**settings.dict(exclude_none=True))
+        await db.settings.insert_one(new_settings.dict())
+        return {"success": True, "settings": new_settings.dict()}
+
+@api_router.get("/settings")
+async def get_settings():
+    """Get app settings"""
+    settings = await db.settings.find_one()
+    if not settings:
+        default_settings = AppSettings()
+        await db.settings.insert_one(default_settings.dict())
+        return {"settings": default_settings.dict()}
+    return {"settings": AppSettings(**settings).dict()}
+
+@api_router.post("/session/start")
+async def start_work_session(request: WorkSessionStart):
+    """Start a work session"""
+    schedule = await db.schedules.find_one(sort=[("uploaded_at", -1)])
+    
+    scheduled_times = None
+    if schedule:
+        work_days = schedule.get('work_days', [])
+        for day in work_days:
+            if day['date'] == request.date:
+                scheduled_times = {"start": day['start'], "end": day['end']}
+                break
+    
+    start_time = datetime.fromisoformat(request.start_timestamp.replace('Z', '+00:00'))
+    
+    session = WorkSession(
+        date=request.date,
+        start_time=start_time,
+        scheduled_start=scheduled_times['start'] if scheduled_times else None,
+        scheduled_end=scheduled_times['end'] if scheduled_times else None
+    )
+    
+    await db.sessions.insert_one(session.dict())
+    return {"success": True, "session": session.dict()}
+
+@api_router.post("/session/end")
+async def end_work_session(request: WorkSessionEnd):
+    """End a work session and calculate overtime"""
+    session = await db.sessions.find_one({"id": request.session_id})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    from datetime import timedelta, timezone
+    lithuania_tz = timezone(timedelta(hours=2))
+    
+    end_time = datetime.now(lithuania_tz)
+    start_time = session['start_time']
+    
+    if start_time.tzinfo is None:
+        start_time = start_time.replace(tzinfo=lithuania_tz)
+    
+    # FIXED: Initialize overtime_minutes to 0 to avoid None
+    overtime_minutes = 0
+    if session.get('scheduled_end'):
+        from datetime import datetime as dt
+        
+        scheduled_end_str = session['scheduled_end']
+        scheduled_end_time = dt.strptime(scheduled_end_str, "%H:%M").time()
+        
+        scheduled_end_datetime = datetime.combine(end_time.date(), scheduled_end_time)
+        scheduled_end_datetime = scheduled_end_datetime.replace(tzinfo=lithuania_tz)
+        
+        overtime_seconds = (end_time - scheduled_end_datetime).total_seconds()
+        overtime_minutes = max(0, int(overtime_seconds / 60))
+        
+        logger.info(f"Overtime calculation: overtime_minutes={overtime_minutes}")
+    
+    # FIXED: Always set overtime_minutes (never None)
+    await db.sessions.update_one(
+        {"id": request.session_id},
+        {"$set": {
+            "end_time": end_time,
+            "overtime_minutes": overtime_minutes
+        }}
+    )
+    
+    updated_session = await db.sessions.find_one({"id": request.session_id})
+    return {"success": True, "session": WorkSession(**updated_session).dict()}
+
+@api_router.post("/session/photo")
+async def add_session_photo(request: PhotoUpload):
+    """Add a photo to a work session"""
+    session = await db.sessions.find_one({"id": request.session_id})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    photos = session.get('photos', [])
+    photos.append(request.photo_base64)
+    
+    await db.sessions.update_one(
+        {"id": request.session_id},
+        {"$set": {"photos": photos}}
+    )
+    
+    return {"success": True, "photo_count": len(photos)}
+
+@api_router.get("/session/active")
+async def get_active_session():
+    """Get the current active session"""
+    session = await db.sessions.find_one({"end_time": None}, sort=[("start_time", -1)])
+    if not session:
+        return {"session": None}
+    return {"session": WorkSession(**session).dict()}
+
+@api_router.get("/sessions/history")
+async def get_session_history(limit: int = 30):
+    """Get work session history"""
+    sessions = await db.sessions.find().sort("start_time", -1).limit(limit).to_list(limit)
+    return {"sessions": [WorkSession(**s).dict() for s in sessions]}
+
+@api_router.post("/session/edit")
+async def edit_work_session(request: WorkSessionEdit):
+    """Edit work session times"""
+    session = await db.sessions.find_one({"id": request.session_id})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    new_start = datetime.fromisoformat(request.start_time.replace('Z', '+00:00'))
+    new_end = datetime.fromisoformat(request.end_time.replace('Z', '+00:00')) if request.end_time else None
+    
+    overtime_minutes = 0
+    if new_end and session.get('scheduled_start') and session.get('scheduled_end'):
+        actual_minutes = int((new_end - new_start).total_seconds() / 60)
+        scheduled_start = datetime.strptime(session['scheduled_start'], "%H:%M")
+        scheduled_end = datetime.strptime(session['scheduled_end'], "%H:%M")
+        expected_minutes = int((scheduled_end - scheduled_start).total_seconds() / 60)
+        overtime_minutes = max(0, actual_minutes - expected_minutes)
+    
+    update_data = {
+        "start_time": new_start,
+        "date": request.date
+    }
+    if new_end:
+        update_data["end_time"] = new_end
+        update_data["overtime_minutes"] = overtime_minutes
+    
+    await db.sessions.update_one(
+        {"id": request.session_id},
+        {"$set": update_data}
+    )
+    
+    updated_session = await db.sessions.find_one({"id": request.session_id})
+    return {"success": True, "session": WorkSession(**updated_session).dict()}
+
+@api_router.post("/email/simple-test")
+async def simple_email_test():
+    """Very simple email test without SMTP"""
+    try:
+        print("🧪 Simple email test called")
+        
+        return {
+            "success": True,
+            "message": "Email test endpoint is working",
+            "email_sent": False,
+            "note": "SMTP is disabled for testing"
+        }
+        
+    except Exception as e:
+        print(f"💥 Simple test error: {str(e)}")
+        return {
+            "success": False,
+            "message": f"Test failed: {str(e)}"
+        }
+
 @api_router.post("/email/test")
 async def test_email():
     """Test email functionality"""
@@ -499,165 +674,6 @@ async def test_email():
             "email_sent": False
         }
 
-
-@api_router.post("/schedule/manual")
-async def upload_manual_schedule(request: ManualScheduleRequest):
-    """Upload manually entered schedule"""
-    try:
-        # Validate work_days
-        if not request.work_days or len(request.work_days) == 0:
-            raise HTTPException(status_code=400, detail="No work days provided")
-        
-        # Save to database
-        schedule = WorkSchedule(
-            work_days=request.work_days,
-            pdf_filename="manual_entry"
-        )
-        await db.schedules.insert_one(schedule.dict())
-        
-        return {"success": True, "schedule": schedule.dict()}
-        
-    except Exception as e:
-        logger.error(f"Error saving manual schedule: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to save schedule: {str(e)}")
-
-@api_router.post("/settings")
-async def update_settings(settings: SettingsUpdate):
-    """Update app settings"""
-    # Get existing settings or create new
-    existing = await db.settings.find_one()
-    
-    if existing:
-        # Update existing
-        update_data = {k: v for k, v in settings.dict().items() if v is not None}
-        update_data['updated_at'] = datetime.utcnow()
-        await db.settings.update_one({"id": existing["id"]}, {"$set": update_data})
-        updated = await db.settings.find_one({"id": existing["id"]})
-        return {"success": True, "settings": AppSettings(**updated).dict()}
-    else:
-        # Create new
-        new_settings = AppSettings(**settings.dict(exclude_none=True))
-        await db.settings.insert_one(new_settings.dict())
-        return {"success": True, "settings": new_settings.dict()}
-
-@api_router.get("/settings")
-async def get_settings():
-    """Get app settings"""
-    settings = await db.settings.find_one()
-    if not settings:
-        # Return defaults
-        default_settings = AppSettings()
-        await db.settings.insert_one(default_settings.dict())
-        return {"settings": default_settings.dict()}
-    return {"settings": AppSettings(**settings).dict()}
-
-@api_router.post("/session/start")
-async def start_work_session(request: WorkSessionStart):
-    """Start a work session"""
-    # Get current schedule to find expected times
-    schedule = await db.schedules.find_one(sort=[("uploaded_at", -1)])
-    
-    scheduled_times = None
-    if schedule:
-        work_days = schedule.get('work_days', [])
-        for day in work_days:
-            if day['date'] == request.date:
-                scheduled_times = {"start": day['start'], "end": day['end']}
-                break
-    
-    # Use timestamp from frontend (already in local timezone)
-    start_time = datetime.fromisoformat(request.start_timestamp.replace('Z', '+00:00'))
-    
-    session = WorkSession(
-        date=request.date,
-        start_time=start_time,
-        scheduled_start=scheduled_times['start'] if scheduled_times else None,
-        scheduled_end=scheduled_times['end'] if scheduled_times else None
-    )
-    
-    await db.sessions.insert_one(session.dict())
-    return {"success": True, "session": session.dict()}
-
-@api_router.post("/session/end")
-async def end_work_session(request: WorkSessionEnd):
-    """End a work session and calculate overtime"""
-    session = await db.sessions.find_one({"id": request.session_id})
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    # FIXED: Use Lithuania timezone (UTC+2/UTC+3)
-    from datetime import timedelta, timezone
-    lithuania_tz = timezone(timedelta(hours=2))  # EET (UTC+2) - Winter
-    # TODO: Handle EEST (UTC+3) for summer - for now using +2
-    
-    # Get current time in Lithuania timezone
-    end_time = datetime.now(lithuania_tz)
-    
-    start_time = session['start_time']
-    
-    # Ensure start_time has timezone info
-    if start_time.tzinfo is None:
-        # If start_time is naive, assume it's in Lithuania time
-        start_time = start_time.replace(tzinfo=lithuania_tz)
-    
-    overtime_minutes = 0
-    if session.get('scheduled_end'):
-        # Calculate overtime based on actual end time vs scheduled end time
-        from datetime import datetime as dt
-        
-        # Get scheduled end time
-        scheduled_end_str = session['scheduled_end']  # "HH:MM"
-        scheduled_end_time = dt.strptime(scheduled_end_str, "%H:%M").time()
-        
-        # Combine with today's date in Lithuania timezone
-        scheduled_end_datetime = datetime.combine(end_time.date(), scheduled_end_time)
-        scheduled_end_datetime = scheduled_end_datetime.replace(tzinfo=lithuania_tz)
-        
-        # Calculate overtime: how many minutes AFTER scheduled end time
-        overtime_seconds = (end_time - scheduled_end_datetime).total_seconds()
-        overtime_minutes = max(0, int(overtime_seconds / 60))
-        
-        logger.info(f"Overtime calculation: end_time={end_time}, scheduled_end={scheduled_end_datetime}, overtime_minutes={overtime_minutes}")
-    
-    # Update session
-    await db.sessions.update_one(
-        {"id": request.session_id},
-        {"$set": {
-            "end_time": end_time,
-            "overtime_minutes": overtime_minutes
-        }}
-    )
-    
-    updated_session = await db.sessions.find_one({"id": request.session_id})
-    return {"success": True, "session": WorkSession(**updated_session).dict()}
-
-@api_router.post("/session/photo")
-async def add_session_photo(request: PhotoUpload):
-    """Add a photo to a work session"""
-    session = await db.sessions.find_one({"id": request.session_id})
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    # Add photo to session
-    photos = session.get('photos', [])
-    photos.append(request.photo_base64)
-    
-    await db.sessions.update_one(
-        {"id": request.session_id},
-        {"$set": {"photos": photos}}
-    )
-    
-    return {"success": True, "photo_count": len(photos)}
-
-@api_router.get("/session/active")
-async def get_active_session():
-    """Get the current active session"""
-    # Find session without end_time
-    session = await db.sessions.find_one({"end_time": None}, sort=[("start_time", -1)])
-    if not session:
-        return {"session": None}
-    return {"session": WorkSession(**session).dict()}
-
 @api_router.post("/email/send")
 async def send_overtime_email(request: EmailSendRequest):
     """Send overtime email with photos"""
@@ -687,16 +703,13 @@ async def send_overtime_email(request: EmailSendRequest):
         
         print(f"📊 Overtime: {overtime_minutes} minutes")
         
-        # Get timezone from settings (default Lithuania UTC+2)
-        timezone_offset = settings.get('timezone_offset', 2)  # hours
+        timezone_offset = settings.get('timezone_offset', 2)
         from datetime import timedelta, timezone as tz
         user_timezone = tz(timedelta(hours=timezone_offset))
         
-        # Use SCHEDULED times from work schedule
         scheduled_start = session.get('scheduled_start', 'N/A')
         scheduled_end = session.get('scheduled_end', 'N/A')
         
-        # Get actual end time and convert to user timezone
         end_time = session.get('end_time')
         if end_time:
             if end_time.tzinfo is None:
@@ -706,7 +719,6 @@ async def send_overtime_email(request: EmailSendRequest):
         else:
             actual_end_str = 'N/A'
         
-        # Format the email body using the template
         body_text = email_template.format(
             date=session['date'],
             start_time=scheduled_start,
@@ -716,7 +728,6 @@ async def send_overtime_email(request: EmailSendRequest):
             photo_count=len(session.get('photos', []))
         )
         
-        # Convert to HTML
         body_html = f"""
         <html>
         <body>
@@ -729,11 +740,9 @@ async def send_overtime_email(request: EmailSendRequest):
         
         print(f"📨 Sending email to: {recipient}")
         
-        # Send email
         email_sent = send_email_with_photos(recipient, subject, body_html, session.get('photos', []))
         
         if email_sent:
-            # Mark email as sent
             await db.sessions.update_one(
                 {"id": request.session_id},
                 {"$set": {"email_sent": True}}
@@ -759,72 +768,34 @@ async def send_overtime_email(request: EmailSendRequest):
             "message": f"Email processing completed: {str(e)}",
             "email_sent": False
         }
+
+@api_router.post("/location/test")
+async def test_location(request: dict):
+    """Test location functionality"""
+    try:
+        latitude = request.get('latitude', 0)
+        longitude = request.get('longitude', 0)
         
-    # Convert to HTML
-    body_html = f"""
-    <html>
-    <body>
-        <pre style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6;">
-{body_text}
-        </pre>
-    </body>
-    </html>
-    """
-    
-    send_email_with_photos(recipient, subject, body_html, session.get('photos', []))
-    
-    # Mark email as sent
-    await db.sessions.update_one(
-        {"id": request.session_id},
-        {"$set": {"email_sent": True}}
-    )
-    
-    return {"success": True, "message": "Email sent successfully"}
+        print(f"📍 Location test received: {latitude}, {longitude}")
+        
+        return {
+            "success": True,
+            "message": "Location received successfully",
+            "location": {
+                "latitude": latitude,
+                "longitude": longitude
+            },
+            "received_at": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"💥 Location test error: {str(e)}")
+        return {
+            "success": False,
+            "message": f"Location test failed: {str(e)}"
+        }
 
-@api_router.get("/sessions/history")
-async def get_session_history(limit: int = 30):
-    """Get work session history"""
-    sessions = await db.sessions.find().sort("start_time", -1).limit(limit).to_list(limit)
-    return {"sessions": [WorkSession(**s).dict() for s in sessions]}
-
-@api_router.post("/session/edit")
-async def edit_work_session(request: WorkSessionEdit):
-    """Edit work session times"""
-    session = await db.sessions.find_one({"id": request.session_id})
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    # Parse new times from frontend
-    new_start = datetime.fromisoformat(request.start_time.replace('Z', '+00:00'))
-    new_end = datetime.fromisoformat(request.end_time.replace('Z', '+00:00')) if request.end_time else None
-    
-    # Recalculate overtime if both times present
-    overtime_minutes = 0
-    if new_end and session.get('scheduled_start') and session.get('scheduled_end'):
-        actual_minutes = int((new_end - new_start).total_seconds() / 60)
-        scheduled_start = datetime.strptime(session['scheduled_start'], "%H:%M")
-        scheduled_end = datetime.strptime(session['scheduled_end'], "%H:%M")
-        expected_minutes = int((scheduled_end - scheduled_start).total_seconds() / 60)
-        overtime_minutes = max(0, actual_minutes - expected_minutes)
-    
-    # Update session
-    update_data = {
-        "start_time": new_start,
-        "date": request.date
-    }
-    if new_end:
-        update_data["end_time"] = new_end
-        update_data["overtime_minutes"] = overtime_minutes
-    
-    await db.sessions.update_one(
-        {"id": request.session_id},
-        {"$set": update_data}
-    )
-    
-    updated_session = await db.sessions.find_one({"id": request.session_id})
-    return {"success": True, "session": WorkSession(**updated_session).dict()}
-
-# Include the router in the main app
+# Include the router in the main app - MUST BE AFTER ALL ENDPOINTS
 app.include_router(api_router)
 
 app.add_middleware(
@@ -838,4 +809,3 @@ app.add_middleware(
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
-
